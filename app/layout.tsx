@@ -11,7 +11,7 @@ import "./globals.css";
 const nunitoSans = Nunito_Sans({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700", "800"],
-  variable: "--font-nunito",
+  variable: "--font-sans", // Changed from --font-nunito
   display: "swap",
 });
 
@@ -19,7 +19,7 @@ const nunitoSans = Nunito_Sans({
 const fredoka = Fredoka({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-fredoka",
+  variable: "--font-display", // Changed from --font-fredoka
   display: "swap",
 });
 
@@ -27,7 +27,7 @@ const fredoka = Fredoka({
 const baloo2 = Baloo_2({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
-  variable: "--font-baloo",
+  variable: "--font-accent", // Added for consistency
   display: "swap",
 });
 
@@ -42,24 +42,13 @@ export const metadata: Metadata = {
   publisher: "Kuja Twende Adventures",
   icons: {
     icon: [
-      { url: "/favicon.ico", type: "image/x-icon" },
+      { url: "/favicon.ico", sizes: "any" },
       { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
       { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
-      {
-        url: "/android-chrome-192x192.png",
-        sizes: "192x192",
-        type: "image/png",
-      },
-      {
-        url: "/android-chrome-512x512.png",
-        sizes: "512x512",
-        type: "image/png",
-      },
     ],
     apple: [
       { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
     ],
-    shortcut: "/favicon.ico",
   },
   manifest: "/site.webmanifest",
   openGraph: {
@@ -101,7 +90,7 @@ export default function RootLayout({
       lang="en"
       className={`${nunitoSans.variable} ${fredoka.variable} ${baloo2.variable}`}
     >
-      <body className="font-nunito antialiased dark overflow-x-hidden">
+      <body className="font-sans antialiased dark overflow-x-hidden">
         <Suspense fallback={null}>
           <AuthProvider>
             {children}
