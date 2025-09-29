@@ -1,58 +1,59 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent } from "@/components/ui/card"
-import { Mail, Send } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import { Mail, Send } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export function Newsletter() {
-  const [email, setEmail] = useState("")
-  const [loading, setLoading] = useState(false)
-  const { toast } = useToast()
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
     if (!email) {
       toast({
         title: "Email required",
         description: "Please enter your email address.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
-    setLoading(true)
+    setLoading(true);
 
     // Simulate newsletter signup
     setTimeout(() => {
       toast({
         title: "Subscribed!",
         description: "Thank you for subscribing to our newsletter.",
-      })
-      setEmail("")
-      setLoading(false)
-    }, 1000)
-  }
+      });
+      setEmail("");
+      setLoading(false);
+    }, 1000);
+  };
 
   return (
-    <section className="py-20 px-4">
+    <section className="py-16 px-4">
       <div className="container mx-auto">
         <Card className="glass border-white/10 max-w-4xl mx-auto animate-fade-scale">
-          <CardContent className="p-8 md:p-12">
+          <CardContent className="p-8">
             <div className="text-center mb-8">
               <div className="w-16 h-16 bg-gradient-to-r from-cyan-400 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Mail className="w-8 h-8 text-white" />
               </div>
-              <h2 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-cyan-400 to-purple-600 bg-clip-text text-transparent">
+              <h2 className="text-3xl font-bold mb-4 bg-gradient-to-r from-cyan-400 to-purple-600 bg-clip-text text-transparent">
                 Stay Updated
               </h2>
-              <p className="text-xl text-white/80 max-w-2xl mx-auto">
-                Get the latest travel deals, destination guides, and adventure stories delivered to your inbox
+              <p className="text-lg text-white/80 max-w-2xl mx-auto">
+                Get the latest travel deals, destination guides, and adventure
+                stories delivered to your inbox
               </p>
             </div>
 
@@ -85,17 +86,23 @@ export function Newsletter() {
               </div>
             </form>
 
-            <div className="flex items-center justify-center gap-8 mt-8 pt-8 border-t border-white/10">
+            <div className="flex items-center justify-center gap-6 mt-8 pt-8 border-t border-white/10">
               <div className="text-center">
-                <div className="text-2xl font-bold text-cyan-400 mb-1">Weekly</div>
+                <div className="text-xl font-bold text-cyan-400 mb-1">
+                  Weekly
+                </div>
                 <div className="text-white/70 text-sm">Travel Tips</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-purple-400 mb-1">Exclusive</div>
+                <div className="text-xl font-bold text-purple-400 mb-1">
+                  Exclusive
+                </div>
                 <div className="text-white/70 text-sm">Deals</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-orange-400 mb-1">Early</div>
+                <div className="text-xl font-bold text-orange-400 mb-1">
+                  Early
+                </div>
                 <div className="text-white/70 text-sm">Access</div>
               </div>
             </div>
@@ -103,5 +110,5 @@ export function Newsletter() {
         </Card>
       </div>
     </section>
-  )
+  );
 }

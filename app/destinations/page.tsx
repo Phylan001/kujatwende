@@ -114,7 +114,7 @@ export default function DestinationsPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
       <Header />
 
-      <main className="pt-24">
+      <main className="pt-18 md:pt-20">
         {/* Hero Section */}
         <section className="relative py-20 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/20 to-purple-600/20" />

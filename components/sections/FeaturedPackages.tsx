@@ -1,37 +1,46 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Star, Clock, Users, MapPin } from "lucide-react"
-import type { TravelPackage } from "@/lib/models/Package"
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Star, Clock, Users, MapPin } from "lucide-react";
+import type { TravelPackage } from "@/lib/models/Package";
 
 export function FeaturedPackages() {
-  const [packages, setPackages] = useState<TravelPackage[]>([])
-  const [loading, setLoading] = useState(true)
+  const [packages, setPackages] = useState<TravelPackage[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/packages?featured=true&limit=6")
       .then((res) => res.json())
       .then((data) => {
-        setPackages(data.packages || [])
-        setLoading(false)
+        setPackages(data.packages || []);
+        setLoading(false);
       })
-      .catch(() => setLoading(false))
-  }, [])
+      .catch(() => setLoading(false));
+  }, []);
 
   if (loading) {
     return (
-      <section className="py-20 px-4">
+      <section className="py-16 px-4">
         <div className="container mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold mb-4 bg-gradient-to-r from-cyan-400 to-purple-600 bg-clip-text text-transparent">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-cyan-400 to-purple-600 bg-clip-text text-transparent">
               Featured Adventures
             </h2>
+            <p className="text-lg text-white/80 max-w-2xl mx-auto">
+              Discover our most popular travel experiences, carefully curated
+              for unforgettable memories
+            </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[...Array(6)].map((_, i) => (
               <div key={i} className="glass rounded-2xl p-6 animate-pulse">
                 <div className="h-48 bg-white/10 rounded-xl mb-4" />
@@ -42,22 +51,23 @@ export function FeaturedPackages() {
           </div>
         </div>
       </section>
-    )
+    );
   }
 
   return (
-    <section className="py-20 px-4">
+    <section className="py-16 px-4">
       <div className="container mx-auto">
         <div className="text-center mb-12 animate-slide-up">
-          <h2 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-cyan-400 to-purple-600 bg-clip-text text-transparent">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-cyan-400 to-purple-600 bg-clip-text text-transparent">
             Featured Adventures
           </h2>
-          <p className="text-xl text-white/80 max-w-2xl mx-auto">
-            Discover our most popular travel experiences, carefully curated for unforgettable memories
+          <p className="text-lg text-white/80 max-w-2xl mx-auto">
+            Discover our most popular travel experiences, carefully curated for
+            unforgettable memories
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {packages.map((pkg, index) => (
             <Card
               key={pkg._id?.toString()}
@@ -68,7 +78,8 @@ export function FeaturedPackages() {
                 <div className="relative overflow-hidden">
                   <img
                     src={
-                      pkg.images[0] || `/placeholder.svg?height=300&width=400&query=${pkg.destination}-${pkg.category}`
+                      pkg.images[0] ||
+                      `/placeholder.svg?height=300&width=400&query=${pkg.destination}-${pkg.category}`
                     }
                     alt={pkg.title}
                     className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-300"
@@ -79,7 +90,10 @@ export function FeaturedPackages() {
                     </Badge>
                   </div>
                   <div className="absolute top-4 right-4">
-                    <Badge variant="secondary" className="bg-black/50 text-white border-0">
+                    <Badge
+                      variant="secondary"
+                      className="bg-black/50 text-white border-0"
+                    >
                       {pkg.difficulty}
                     </Badge>
                   </div>
@@ -90,7 +104,9 @@ export function FeaturedPackages() {
                 <h3 className="text-xl font-bold text-white mb-2 group-hover:text-cyan-400 transition-colors">
                   {pkg.title}
                 </h3>
-                <p className="text-white/70 text-sm mb-4 line-clamp-2">{pkg.description}</p>
+                <p className="text-white/70 text-sm mb-4 line-clamp-2">
+                  {pkg.description}
+                </p>
 
                 <div className="flex items-center gap-4 text-sm text-white/60 mb-4">
                   <div className="flex items-center gap-1">
@@ -110,10 +126,14 @@ export function FeaturedPackages() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1">
                     <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                    <span className="text-white/80 text-sm">4.8 (124 reviews)</span>
+                    <span className="text-white/80 text-sm">
+                      4.8 (124 reviews)
+                    </span>
                   </div>
                   <div className="text-right">
-                    <div className="text-2xl font-bold text-cyan-400">KSh {pkg.price.toLocaleString()}</div>
+                    <div className="text-xl font-bold text-cyan-400">
+                      KSh {pkg.price.toLocaleString()}
+                    </div>
                     <div className="text-xs text-white/60">per person</div>
                   </div>
                 </div>
@@ -143,5 +163,5 @@ export function FeaturedPackages() {
         </div>
       </div>
     </section>
-  )
+  );
 }
