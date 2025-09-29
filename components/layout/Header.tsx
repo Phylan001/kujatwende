@@ -1,14 +1,15 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import Link from "next/link"
-import { useAuth } from "@/components/providers/AuthProvider"
-import { Button } from "@/components/ui/button"
-import { Menu, X, User, LogOut } from "lucide-react"
+import { useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { useAuth } from "@/components/providers/AuthProvider";
+import { Button } from "@/components/ui/button";
+import { Menu, X, User, LogOut } from "lucide-react";
 
 export function Header() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const { user, logout } = useAuth()
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { user, logout } = useAuth();
 
   return (
     <header className="fixed top-0 w-full z-50 glass border-b border-white/10">
@@ -16,29 +17,48 @@ export function Header() {
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2">
-            <div className="w-10 h-10 bg-gradient-to-r from-cyan-400 to-purple-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-xl">KT</span>
-            </div>
+            <Image
+              src="/logo.png"
+              alt="KujaTwende Icon"
+              width={48}
+              height={48}
+              className="w-10 h-10 sm:w-12 sm:h-12"
+            />
             <span className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-purple-600 bg-clip-text text-transparent">
-              Kuja Twende
+              <span className="text-primary">KUJA</span>TWENDE.
             </span>
           </Link>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
-            <Link href="/" className="text-white/80 hover:text-cyan-400 transition-colors">
+            <Link
+              href="/"
+              className="text-white/80 hover:text-cyan-400 transition-colors"
+            >
               Home
             </Link>
-            <Link href="/packages" className="text-white/80 hover:text-cyan-400 transition-colors">
+            <Link
+              href="/packages"
+              className="text-white/80 hover:text-cyan-400 transition-colors"
+            >
               Packages
             </Link>
-            <Link href="/destinations" className="text-white/80 hover:text-cyan-400 transition-colors">
+            <Link
+              href="/destinations"
+              className="text-white/80 hover:text-cyan-400 transition-colors"
+            >
               Destinations
             </Link>
-            <Link href="/about" className="text-white/80 hover:text-cyan-400 transition-colors">
+            <Link
+              href="/about"
+              className="text-white/80 hover:text-cyan-400 transition-colors"
+            >
               About
             </Link>
-            <Link href="/contact" className="text-white/80 hover:text-cyan-400 transition-colors">
+            <Link
+              href="/contact"
+              className="text-white/80 hover:text-cyan-400 transition-colors"
+            >
               Contact
             </Link>
           </nav>
@@ -55,12 +75,21 @@ export function Header() {
                 </Link>
                 {user.role === "admin" && (
                   <Link href="/admin">
-                    <Button variant="outline" size="sm" className="border-cyan-400 text-cyan-400 bg-transparent">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-cyan-400 text-cyan-400 bg-transparent"
+                    >
                       Admin
                     </Button>
                   </Link>
                 )}
-                <Button variant="ghost" size="sm" onClick={logout} className="text-white/80">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={logout}
+                  className="text-white/80"
+                >
                   <LogOut className="w-4 h-4" />
                 </Button>
               </div>
@@ -81,8 +110,15 @@ export function Header() {
           </div>
 
           {/* Mobile Menu Button */}
-          <button className="md:hidden text-white" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-            {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          <button
+            className="md:hidden text-white"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+          >
+            {isMenuOpen ? (
+              <X className="w-6 h-6" />
+            ) : (
+              <Menu className="w-6 h-6" />
+            )}
           </button>
         </div>
 
@@ -90,19 +126,34 @@ export function Header() {
         {isMenuOpen && (
           <div className="md:hidden mt-4 pb-4 border-t border-white/10">
             <nav className="flex flex-col space-y-4 mt-4">
-              <Link href="/" className="text-white/80 hover:text-cyan-400 transition-colors">
+              <Link
+                href="/"
+                className="text-white/80 hover:text-cyan-400 transition-colors"
+              >
                 Home
               </Link>
-              <Link href="/packages" className="text-white/80 hover:text-cyan-400 transition-colors">
+              <Link
+                href="/packages"
+                className="text-white/80 hover:text-cyan-400 transition-colors"
+              >
                 Packages
               </Link>
-              <Link href="/destinations" className="text-white/80 hover:text-cyan-400 transition-colors">
+              <Link
+                href="/destinations"
+                className="text-white/80 hover:text-cyan-400 transition-colors"
+              >
                 Destinations
               </Link>
-              <Link href="/about" className="text-white/80 hover:text-cyan-400 transition-colors">
+              <Link
+                href="/about"
+                className="text-white/80 hover:text-cyan-400 transition-colors"
+              >
                 About
               </Link>
-              <Link href="/contact" className="text-white/80 hover:text-cyan-400 transition-colors">
+              <Link
+                href="/contact"
+                className="text-white/80 hover:text-cyan-400 transition-colors"
+              >
                 Contact
               </Link>
               {user ? (
@@ -134,5 +185,5 @@ export function Header() {
         )}
       </div>
     </header>
-  )
+  );
 }
