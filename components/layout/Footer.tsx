@@ -70,16 +70,16 @@ export function Footer() {
             <h3 className="text-lg font-semibold text-white">Quick Links</h3>
             <div className="space-y-2">
               <Link
-                href="/packages"
-                className="block text-white/70 hover:text-cyan-400 transition-colors"
-              >
-                Travel Packages
-              </Link>
-              <Link
                 href="/destinations"
                 className="block text-white/70 hover:text-cyan-400 transition-colors"
               >
                 Destinations
+              </Link>
+              <Link
+                href="/packages"
+                className="block text-white/70 hover:text-cyan-400 transition-colors"
+              >
+                Travel Packages
               </Link>
               <Link
                 href="/about"
