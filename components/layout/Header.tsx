@@ -38,16 +38,16 @@ export function Header() {
               Home
             </Link>
             <Link
-              href="/packages"
-              className="text-white/80 hover:text-cyan-400 transition-colors"
-            >
-              Packages
-            </Link>
-            <Link
               href="/destinations"
               className="text-white/80 hover:text-cyan-400 transition-colors"
             >
               Destinations
+            </Link>
+            <Link
+              href="/packages"
+              className="text-white/80 hover:text-cyan-400 transition-colors"
+            >
+              Packages
             </Link>
             <Link
               href="/about"
