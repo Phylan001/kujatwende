@@ -10,33 +10,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Shield,
+  AlertCircle,
+  Users,
+  Package,
+  Calendar,
+  DollarSign,
+  Clock,
+  CheckCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, Settings, Eye, Shield, AlertCircle } from "lucide-react";
-import { AdminStats } from "@/components/admin/AdminStats";
-import { BookingsManagement } from "@/components/admin/BookingsManagement";
-import { PackagesManagement } from "@/components/admin/PackagesManagement";
-import { UsersManagement } from "@/components/admin/UsersManagement";
 
-/**
- * Admin Dashboard Page Component
- *
- * SECURITY FEATURES:
- * - Role-based access control (admin only)
- * - Automatic redirect for non-admin users
- * - Token verification on mount and data fetch
- * - Unauthorized access prevention
- *
- * ROUTING LOGIC:
- * - If not logged in → redirect to /auth/login
- * - If logged in as user (not admin) → redirect to /dashboard
- * - If logged in as admin → show admin dashboard
- *
- * This ensures:
- * 1. Admins cannot access user dashboard (/dashboard)
- * 2. Users cannot access admin dashboard (/admin)
- * 3. Each role has access only to their designated routes
- */
 export default function AdminDashboard() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -50,47 +35,28 @@ export default function AdminDashboard() {
   });
   const [accessDenied, setAccessDenied] = useState(false);
 
-  /**
-   * Effect: Role-based access control
-   * Checks user authentication and role, redirects if unauthorized
-   *
-   * Access Rules:
-   * 1. No user logged in → Login page
-   * 2. User logged in but not admin → User dashboard
-   * 3. Admin logged in → Admin dashboard (allowed)
-   */
   useEffect(() => {
-    if (loading) return; // Wait for auth check to complete
+    if (loading) return;
 
     if (!user) {
-      // Not logged in - redirect to login
       router.push("/auth/login");
       return;
     }
 
     if (user.role !== "admin") {
-      // Logged in but not admin - show access denied briefly then redirect
       setAccessDenied(true);
-
-      // Brief delay to show access denied message
       setTimeout(() => {
-        router.push("/dashboard"); // Redirect to user dashboard
+        router.push("/dashboard");
       }, 1500);
     }
   }, [user, loading, router]);
 
-  /**
-   * Effect: Fetch admin statistics
-   * Only runs for authenticated admin users
-   * Fetches dashboard stats from protected API endpoint
-   */
   useEffect(() => {
     if (!user || user.role !== "admin") return;
 
     const fetchAdminStats = async () => {
       try {
         const token = localStorage.getItem("auth-token");
-
         if (!token) {
           router.push("/auth/login");
           return;
@@ -109,7 +75,6 @@ export default function AdminDashboard() {
             setStats(data.stats);
           }
         } else if (response.status === 401 || response.status === 403) {
-          // Token invalid or insufficient permissions
           router.push("/auth/login");
         }
       } catch (error) {
@@ -120,10 +85,6 @@ export default function AdminDashboard() {
     fetchAdminStats();
   }, [user, router]);
 
-  /**
-   * Render: Loading State
-   * Shows spinner while authentication is being verified
-   */
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center">
@@ -135,11 +96,6 @@ export default function AdminDashboard() {
     );
   }
 
-  /**
-   * Render: Access Denied State
-   * Shows when a non-admin user tries to access admin dashboard
-   * Displays briefly before redirecting to appropriate dashboard
-   */
   if (accessDenied || (user && user.role !== "admin")) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center p-4">
@@ -176,125 +132,175 @@ export default function AdminDashboard() {
     );
   }
 
-  /**
-   * Render: Not Authenticated
-   * Should not normally reach here due to redirect in useEffect
-   * Acts as a safety fallback
-   */
   if (!user) {
     return null;
   }
 
-  /**
-   * Render: Admin Dashboard
-   * Main admin interface with stats, management tabs, and actions
-   * Only visible to authenticated admin users
-   */
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black/20 via-transparent to-transparent">
-      <div className="container mx-auto px-4 py-8">
-        {/* Header Section */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <Shield className="w-8 h-8 text-cyan-400" />
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-600 bg-clip-text text-transparent">
-                Admin Dashboard
-              </h1>
-            </div>
-            <p className="text-white/70 mt-2">
-              Manage your travel agency operations
-            </p>
-            <p className="text-white/50 text-sm mt-1">
-              Logged in as: <span className="text-cyan-400">{user.email}</span>
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <Button
-              onClick={() => router.push("/")}
-              variant="outline"
-              className="border-white/20 text-white hover:bg-white/10"
-            >
-              <Eye className="w-4 h-4 mr-2" />
-              View Site
-            </Button>
-            <Button className="bg-gradient-to-r from-cyan-400 to-purple-600 hover:from-cyan-500 hover:to-purple-700">
-              <Settings className="w-4 h-4 mr-2" />
-              Settings
-            </Button>
-          </div>
+    <div className="space-y-6">
+      {/* Welcome Section */}
+      <div className="flex items-center gap-3">
+        <Shield className="w-8 h-8 text-cyan-400" />
+        <div>
+          <h2 className="text-3xl font-bold text-white">Admin Dashboard</h2>
+          <p className="text-slate-400 mt-1">
+            Manage your travel agency operations
+          </p>
         </div>
-
-        {/* Stats Overview */}
-        <AdminStats stats={stats} />
-
-        {/* Management Tabs */}
-        <Tabs defaultValue="bookings" className="mt-8">
-          <TabsList className="grid w-full grid-cols-4 bg-white/10 border-white/20">
-            <TabsTrigger
-              value="bookings"
-              className="text-white data-[state=active]:bg-cyan-400 data-[state=active]:text-black"
-            >
-              Bookings
-            </TabsTrigger>
-            <TabsTrigger
-              value="packages"
-              className="text-white data-[state=active]:bg-cyan-400 data-[state=active]:text-black"
-            >
-              Packages
-            </TabsTrigger>
-            <TabsTrigger
-              value="users"
-              className="text-white data-[state=active]:bg-cyan-400 data-[state=active]:text-black"
-            >
-              Users
-            </TabsTrigger>
-            <TabsTrigger
-              value="analytics"
-              className="text-white data-[state=active]:bg-cyan-400 data-[state=active]:text-black"
-            >
-              Analytics
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="bookings" className="mt-6">
-            <BookingsManagement />
-          </TabsContent>
-
-          <TabsContent value="packages" className="mt-6">
-            <PackagesManagement />
-          </TabsContent>
-
-          <TabsContent value="users" className="mt-6">
-            <UsersManagement />
-          </TabsContent>
-
-          <TabsContent value="analytics" className="mt-6">
-            <Card className="glass border-white/10">
-              <CardHeader>
-                <CardTitle className="text-white">
-                  Analytics & Reports
-                </CardTitle>
-                <CardDescription className="text-white/70">
-                  Detailed analytics and reporting features
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-12">
-                  <TrendingUp className="w-16 h-16 text-white/30 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-white mb-2">
-                    Analytics Coming Soon
-                  </h3>
-                  <p className="text-white/70">
-                    Advanced analytics and reporting features will be available
-                    here
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
       </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <Card className="bg-gradient-to-br from-cyan-500/10 to-cyan-600/5 border-cyan-500/20">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-400 text-sm font-medium">
+                  Total Users
+                </p>
+                <h3 className="text-4xl font-bold text-cyan-400 mt-2">
+                  {stats.totalUsers}
+                </h3>
+              </div>
+              <div className="w-14 h-14 bg-cyan-500/20 rounded-full flex items-center justify-center">
+                <Users className="w-7 h-7 text-cyan-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-purple-500/10 to-purple-600/5 border-purple-500/20">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-400 text-sm font-medium">
+                  Active Packages
+                </p>
+                <h3 className="text-4xl font-bold text-purple-400 mt-2">
+                  {stats.activePackages}
+                </h3>
+              </div>
+              <div className="w-14 h-14 bg-purple-500/20 rounded-full flex items-center justify-center">
+                <Package className="w-7 h-7 text-purple-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-500/20">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-400 text-sm font-medium">
+                  Total Bookings
+                </p>
+                <h3 className="text-4xl font-bold text-green-400 mt-2">
+                  {stats.totalBookings}
+                </h3>
+              </div>
+              <div className="w-14 h-14 bg-green-500/20 rounded-full flex items-center justify-center">
+                <Calendar className="w-7 h-7 text-green-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border-orange-500/20">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-400 text-sm font-medium">
+                  Total Revenue
+                </p>
+                <h3 className="text-4xl font-bold text-orange-400 mt-2">
+                  KSh {stats.totalRevenue.toLocaleString()}
+                </h3>
+              </div>
+              <div className="w-14 h-14 bg-orange-500/20 rounded-full flex items-center justify-center">
+                <DollarSign className="w-7 h-7 text-orange-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-yellow-500/10 to-yellow-600/5 border-yellow-500/20">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-400 text-sm font-medium">
+                  Pending Bookings
+                </p>
+                <h3 className="text-4xl font-bold text-yellow-400 mt-2">
+                  {stats.pendingBookings}
+                </h3>
+              </div>
+              <div className="w-14 h-14 bg-yellow-500/20 rounded-full flex items-center justify-center">
+                <Clock className="w-7 h-7 text-yellow-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border-emerald-500/20">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-400 text-sm font-medium">
+                  Completion Rate
+                </p>
+                <h3 className="text-4xl font-bold text-emerald-400 mt-2">
+                  94%
+                </h3>
+              </div>
+              <div className="w-14 h-14 bg-emerald-500/20 rounded-full flex items-center justify-center">
+                <CheckCircle className="w-7 h-7 text-emerald-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Quick Actions */}
+      <Card className="bg-slate-800/50 border-slate-700/50">
+        <CardHeader>
+          <CardTitle className="text-white">Quick Actions</CardTitle>
+          <CardDescription className="text-slate-400">
+            Common administrative tasks
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Button
+              onClick={() => router.push("/admin/packages")}
+              className="h-auto flex-col gap-3 py-6 bg-slate-700/50 hover:bg-slate-700 border border-slate-600"
+            >
+              <Package className="w-8 h-8 text-purple-400" />
+              <span className="text-white font-medium">Manage Packages</span>
+            </Button>
+            <Button
+              onClick={() => router.push("/admin/bookings")}
+              className="h-auto flex-col gap-3 py-6 bg-slate-700/50 hover:bg-slate-700 border border-slate-600"
+            >
+              <Calendar className="w-8 h-8 text-green-400" />
+              <span className="text-white font-medium">View Bookings</span>
+            </Button>
+            <Button
+              onClick={() => router.push("/admin/users")}
+              className="h-auto flex-col gap-3 py-6 bg-slate-700/50 hover:bg-slate-700 border border-slate-600"
+            >
+              <Users className="w-8 h-8 text-cyan-400" />
+              <span className="text-white font-medium">Manage Users</span>
+            </Button>
+            <Button
+              onClick={() => router.push("/admin/analytics")}
+              className="h-auto flex-col gap-3 py-6 bg-slate-700/50 hover:bg-slate-700 border border-slate-600"
+            >
+              <Shield className="w-8 h-8 text-orange-400" />
+              <span className="text-white font-medium">View Analytics</span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
