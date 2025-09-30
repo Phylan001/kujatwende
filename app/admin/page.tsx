@@ -191,7 +191,7 @@ export default function AdminDashboard() {
    * Only visible to authenticated admin users
    */
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-black/20 via-transparent to-transparent">
       <div className="container mx-auto px-4 py-8">
         {/* Header Section */}
         <div className="flex items-center justify-between mb-8">

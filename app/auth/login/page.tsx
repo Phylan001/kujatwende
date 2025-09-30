@@ -5,6 +5,7 @@ import type React from "react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -111,7 +112,13 @@ export default function LoginPage() {
         <Card className="glass border-white/10 animate-fade-scale">
           <CardHeader className="text-center">
             <div className="w-16 h-16 bg-gradient-to-r from-cyan-400 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-white font-bold text-2xl">KT</span>
+              <Image
+                src="/logo.png"
+                alt="KujaTwende Icon"
+                width={48}
+                height={48}
+                className="w-10 h-10 sm:w-12 sm:h-12"
+              />
             </div>
             <CardTitle className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-purple-600 bg-clip-text text-transparent">
               Welcome Back
