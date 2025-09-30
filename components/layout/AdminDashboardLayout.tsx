@@ -1,9 +1,9 @@
-"use client"
+"use client";
 
-import type { ReactNode } from "react"
-import { useAuth } from "@/components/providers/AuthProvider"
-import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import type { ReactNode } from "react";
+import { useAuth } from "@/components/providers/AuthProvider";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   LayoutDashboard,
   Package,
@@ -17,18 +17,19 @@ import {
   Eye,
   MapPin,
   CreditCard,
-} from "lucide-react"
-import Link from "next/link"
-import { useRouter, usePathname } from "next/navigation"
+} from "lucide-react";
+import Link from "next/link";
+import Image from "next/image";
+import { useRouter, usePathname } from "next/navigation";
 
 interface AdminDashboardLayoutProps {
-  children: ReactNode
+  children: ReactNode;
 }
 
 export function AdminDashboardLayout({ children }: AdminDashboardLayoutProps) {
-  const { user, logout } = useAuth()
-  const router = useRouter()
-  const pathname = usePathname()
+  const { user, logout } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
 
   const navigationItems = [
     { href: "/admin", icon: LayoutDashboard, label: "Dashboard" },
@@ -39,7 +40,7 @@ export function AdminDashboardLayout({ children }: AdminDashboardLayoutProps) {
     { href: "/admin/payments", icon: CreditCard, label: "Payments" },
     { href: "/admin/analytics", icon: BarChart3, label: "Analytics" },
     { href: "/admin/settings", icon: Settings, label: "Settings" },
-  ]
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-gray-900 to-black">
@@ -48,8 +49,14 @@ export function AdminDashboardLayout({ children }: AdminDashboardLayoutProps) {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center gap-3 p-6 border-b border-slate-700/50">
-            <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
-              <span className="text-white font-bold text-xl">KT</span>
+            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center">
+              <Image
+                src="/logo.png"
+                alt="KujaTwende Icon"
+                width={48}
+                height={48}
+                className="w-10 h-10 sm:w-12 sm:h-12"
+              />
             </div>
             <div>
               <h2 className="text-white font-bold text-xl">Admin Panel</h2>
@@ -61,7 +68,9 @@ export function AdminDashboardLayout({ children }: AdminDashboardLayoutProps) {
           <div className="p-6 border-b border-slate-700/50">
             <div className="flex items-center gap-3">
               <Avatar className="w-14 h-14 border-2 border-blue-500/30">
-                <AvatarImage src={user?.profilePicture?.secure_url || "/placeholder.svg"} />
+                <AvatarImage
+                  src={user?.profilePicture?.secure_url || "/placeholder.svg"}
+                />
                 <AvatarFallback className="bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-lg">
                   {user?.name?.charAt(0)}
                 </AvatarFallback>
@@ -76,7 +85,7 @@ export function AdminDashboardLayout({ children }: AdminDashboardLayoutProps) {
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-1">
             {navigationItems.map((item) => {
-              const isActive = pathname === item.href
+              const isActive = pathname === item.href;
               return (
                 <Link key={item.href} href={item.href}>
                   <div
@@ -93,7 +102,7 @@ export function AdminDashboardLayout({ children }: AdminDashboardLayoutProps) {
                     <span className="font-medium">{item.label}</span>
                   </div>
                 </Link>
-              )
+              );
             })}
           </nav>
 
@@ -131,10 +140,18 @@ export function AdminDashboardLayout({ children }: AdminDashboardLayoutProps) {
               </h1>
             </div>
             <div className="flex items-center gap-4">
-              <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-slate-400 hover:text-white"
+              >
                 <Search className="w-5 h-5" />
               </Button>
-              <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white relative">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-slate-400 hover:text-white relative"
+              >
                 <Bell className="w-5 h-5" />
                 <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
               </Button>
@@ -146,5 +163,5 @@ export function AdminDashboardLayout({ children }: AdminDashboardLayoutProps) {
         <div className="p-6">{children}</div>
       </div>
     </div>
-  )
+  );
 }
