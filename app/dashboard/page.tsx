@@ -1,78 +1,221 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { useAuth } from "@/components/providers/AuthProvider"
-import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Calendar, MapPin, Star, CreditCard, Clock } from "lucide-react"
-import Link from "next/link"
-import type { Booking } from "@/lib/models/Booking"
+import { useEffect, useState } from "react";
+import { useAuth } from "@/components/providers/AuthProvider";
+import { useRouter } from "next/navigation";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Calendar,
+  MapPin,
+  Star,
+  CreditCard,
+  Clock,
+  AlertCircle,
+  Shield,
+} from "lucide-react";
+import Link from "next/link";
+import type { Booking } from "@/lib/models/Booking";
 
+/**
+ * User Dashboard Page Component
+ *
+ * SECURITY FEATURES:
+ * - Role-based access control (user only)
+ * - Automatic redirect for admin users to /admin
+ * - Token verification on mount and data fetch
+ * - Unauthorized access prevention
+ *
+ * ROUTING LOGIC:
+ * - If not logged in → redirect to /auth/login
+ * - If logged in as admin → redirect to /admin
+ * - If logged in as user → show user dashboard
+ *
+ * This ensures role separation:
+ * - Users can only access user dashboard
+ * - Admins are redirected to their admin dashboard
+ * - Each role stays in their designated area
+ */
 export default function DashboardPage() {
-  const { user, loading } = useAuth()
-  const router = useRouter()
-  const [bookings, setBookings] = useState<Booking[]>([])
+  const { user, loading } = useAuth();
+  const router = useRouter();
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const [stats, setStats] = useState({
     totalBookings: 0,
     upcomingTrips: 0,
     completedTrips: 0,
     totalSpent: 0,
-  })
+  });
+  const [loadingData, setLoadingData] = useState(true);
+  const [accessDenied, setAccessDenied] = useState(false);
 
+  /**
+   * Effect: Role-based access control
+   * Checks user authentication and role, redirects if unauthorized
+   *
+   * Access Rules:
+   * 1. No user logged in → Login page
+   * 2. Admin logged in → Admin dashboard
+   * 3. Regular user logged in → User dashboard (allowed)
+   */
   useEffect(() => {
-    if (!loading && !user) {
-      router.push("/auth/login")
+    if (loading) return; // Wait for auth check to complete
+
+    if (!user) {
+      // Not logged in - redirect to login
+      router.push("/auth/login");
+      return;
     }
-  }, [user, loading, router])
 
+    if (user.role === "admin") {
+      // Admin trying to access user dashboard - redirect to admin
+      setAccessDenied(true);
+
+      // Brief delay to show access message
+      setTimeout(() => {
+        router.push("/admin"); // Redirect to admin dashboard
+      }, 1500);
+    }
+  }, [user, loading, router]);
+
+  /**
+   * Effect: Fetch user bookings and calculate stats
+   * Only runs for authenticated regular users (not admins)
+   * Fetches user-specific booking data from protected API endpoint
+   */
   useEffect(() => {
-    if (user) {
-      // Fetch user bookings
-      fetch("/api/bookings/user", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth-token")}`,
-        },
-      })
-        .then((res) => res.json())
-        .then((data) => {
+    if (!user || user.role !== "user") return;
+
+    const fetchUserBookings = async () => {
+      try {
+        const token = localStorage.getItem("auth-token");
+
+        if (!token) {
+          router.push("/auth/login");
+          return;
+        }
+
+        const response = await fetch("/api/bookings/user", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
           if (data.bookings) {
-            setBookings(data.bookings)
-            // Calculate stats
-            const total = data.bookings.length
+            setBookings(data.bookings);
+
+            // Calculate dashboard statistics
+            const total = data.bookings.length;
             const upcoming = data.bookings.filter(
-              (b: Booking) => new Date(b.travelDate) > new Date() && b.status === "confirmed",
-            ).length
-            const completed = data.bookings.filter((b: Booking) => b.status === "completed").length
+              (b: Booking) =>
+                new Date(b.travelDate) > new Date() && b.status === "confirmed"
+            ).length;
+            const completed = data.bookings.filter(
+              (b: Booking) => b.status === "completed"
+            ).length;
             const spent = data.bookings
               .filter((b: Booking) => b.paymentStatus === "paid")
-              .reduce((sum: number, b: Booking) => sum + b.totalAmount, 0)
+              .reduce((sum: number, b: Booking) => sum + b.totalAmount, 0);
 
             setStats({
               totalBookings: total,
               upcomingTrips: upcoming,
               completedTrips: completed,
               totalSpent: spent,
-            })
+            });
           }
-        })
-        .catch(console.error)
-    }
-  }, [user])
+        } else if (response.status === 401 || response.status === 403) {
+          // Token invalid or insufficient permissions
+          router.push("/auth/login");
+        }
+      } catch (error) {
+        console.error("Failed to fetch user bookings:", error);
+      } finally {
+        setLoadingData(false);
+      }
+    };
 
+    fetchUserBookings();
+  }, [user, router]);
+
+  /**
+   * Render: Loading State
+   * Shows spinner while authentication is being verified
+   */
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-orange-400"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-orange-400 mx-auto"></div>
+          <p className="text-white/70 mt-4">Verifying credentials...</p>
+        </div>
       </div>
-    )
+    );
   }
 
+  /**
+   * Render: Access Denied State
+   * Shows when an admin tries to access user dashboard
+   * Displays briefly before redirecting to admin dashboard
+   */
+  if (accessDenied || (user && user.role === "admin")) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center p-4">
+        <Card className="glass border-orange-500/20 max-w-md">
+          <CardHeader className="text-center">
+            <div className="w-16 h-16 bg-orange-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Shield className="w-8 h-8 text-orange-400" />
+            </div>
+            <CardTitle className="text-2xl font-bold text-orange-400">
+              Admin Redirect
+            </CardTitle>
+            <CardDescription className="text-white/70">
+              Redirecting to admin dashboard...
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-center space-y-4">
+            <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4">
+              <p className="text-white/80 text-sm">
+                You're logged in as an administrator. Admins have their own
+                dedicated dashboard.
+              </p>
+            </div>
+            <Button
+              onClick={() => router.push("/admin")}
+              className="w-full bg-gradient-to-r from-cyan-400 to-purple-600 hover:from-cyan-500 hover:to-purple-700"
+            >
+              Go to Admin Dashboard
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  /**
+   * Render: Not Authenticated
+   * Should not normally reach here due to redirect in useEffect
+   * Acts as a safety fallback
+   */
   if (!user) {
-    return null
+    return null;
   }
 
+  /**
+   * Render: User Dashboard
+   * Main user interface with stats, bookings, and actions
+   * Only visible to authenticated regular users
+   */
   return (
     <div className="space-y-8">
       {/* Welcome Section */}
@@ -82,7 +225,12 @@ export default function DashboardPage() {
             <h1 className="text-3xl font-bold adventure-text-gradient font-fredoka mb-2">
               Welcome back, {user.name}! 🌍
             </h1>
-            <p className="text-white/70 text-lg">Ready for your next adventure?</p>
+            <p className="text-white/70 text-lg">
+              Ready for your next adventure?
+            </p>
+            <p className="text-white/50 text-sm mt-1">
+              Account: <span className="text-orange-400">{user.email}</span>
+            </p>
           </div>
           <div className="animate-bounce-gentle">
             <div className="w-20 h-20 bg-gradient-to-r from-orange-500 to-cyan-500 rounded-full flex items-center justify-center">
@@ -98,8 +246,12 @@ export default function DashboardPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-white/70 text-sm font-medium">Total Adventures</p>
-                <p className="text-3xl font-bold text-orange-400 font-fredoka">{stats.totalBookings}</p>
+                <p className="text-white/70 text-sm font-medium">
+                  Total Adventures
+                </p>
+                <p className="text-3xl font-bold text-orange-400 font-fredoka">
+                  {loadingData ? "..." : stats.totalBookings}
+                </p>
               </div>
               <div className="w-12 h-12 bg-orange-500/20 rounded-xl flex items-center justify-center">
                 <Calendar className="w-6 h-6 text-orange-400" />
@@ -112,8 +264,12 @@ export default function DashboardPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-white/70 text-sm font-medium">Upcoming Trips</p>
-                <p className="text-3xl font-bold text-cyan-400 font-fredoka">{stats.upcomingTrips}</p>
+                <p className="text-white/70 text-sm font-medium">
+                  Upcoming Trips
+                </p>
+                <p className="text-3xl font-bold text-cyan-400 font-fredoka">
+                  {loadingData ? "..." : stats.upcomingTrips}
+                </p>
               </div>
               <div className="w-12 h-12 bg-cyan-500/20 rounded-xl flex items-center justify-center">
                 <Clock className="w-6 h-6 text-cyan-400" />
@@ -127,7 +283,9 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-white/70 text-sm font-medium">Completed</p>
-                <p className="text-3xl font-bold text-green-400 font-fredoka">{stats.completedTrips}</p>
+                <p className="text-3xl font-bold text-green-400 font-fredoka">
+                  {loadingData ? "..." : stats.completedTrips}
+                </p>
               </div>
               <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
                 <Star className="w-6 h-6 text-green-400" />
@@ -140,9 +298,13 @@ export default function DashboardPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-white/70 text-sm font-medium">Adventure Budget</p>
+                <p className="text-white/70 text-sm font-medium">
+                  Adventure Budget
+                </p>
                 <p className="text-3xl font-bold text-purple-400 font-fredoka">
-                  KSh {stats.totalSpent.toLocaleString()}
+                  {loadingData
+                    ? "..."
+                    : `KSh ${stats.totalSpent.toLocaleString()}`}
                 </p>
               </div>
               <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center">
@@ -158,8 +320,12 @@ export default function DashboardPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-white text-2xl font-fredoka">Recent Adventures</CardTitle>
-              <CardDescription className="text-white/70">Your latest bookings and their status</CardDescription>
+              <CardTitle className="text-white text-2xl font-fredoka">
+                Recent Adventures
+              </CardTitle>
+              <CardDescription className="text-white/70">
+                Your latest bookings and their status
+              </CardDescription>
             </div>
             <Link href="/dashboard/bookings">
               <Button
@@ -172,13 +338,22 @@ export default function DashboardPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {bookings.length === 0 ? (
+          {loadingData ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-orange-400 mx-auto"></div>
+              <p className="text-white/70 mt-4">Loading your adventures...</p>
+            </div>
+          ) : bookings.length === 0 ? (
             <div className="text-center py-12">
               <div className="w-24 h-24 bg-gradient-to-r from-orange-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse-adventure">
                 <MapPin className="w-12 h-12 text-white" />
               </div>
-              <h3 className="text-xl font-bold text-white mb-2 font-fredoka">No adventures yet!</h3>
-              <p className="text-white/70 mb-6">Start your journey with us and explore Kenya like never before</p>
+              <h3 className="text-xl font-bold text-white mb-2 font-fredoka">
+                No adventures yet!
+              </h3>
+              <p className="text-white/70 mb-6">
+                Start your journey with us and explore Kenya like never before
+              </p>
               <Link href="/packages">
                 <Button className="btn-adventure">Discover Adventures</Button>
               </Link>
@@ -200,13 +375,16 @@ export default function DashboardPage() {
                         Adventure #{booking._id?.toString().slice(-6)}
                       </h4>
                       <p className="text-white/70">
-                        {new Date(booking.travelDate).toLocaleDateString()} • {booking.numberOfTravelers} explorers
+                        {new Date(booking.travelDate).toLocaleDateString()} •{" "}
+                        {booking.numberOfTravelers} explorers
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
                     <Badge
-                      variant={booking.status === "confirmed" ? "default" : "secondary"}
+                      variant={
+                        booking.status === "confirmed" ? "default" : "secondary"
+                      }
                       className={
                         booking.status === "confirmed"
                           ? "bg-green-500/20 text-green-400 border-green-500/30"
@@ -215,7 +393,9 @@ export default function DashboardPage() {
                     >
                       {booking.status}
                     </Badge>
-                    <p className="text-orange-400 font-bold text-lg">KSh {booking.totalAmount.toLocaleString()}</p>
+                    <p className="text-orange-400 font-bold text-lg">
+                      KSh {booking.totalAmount.toLocaleString()}
+                    </p>
                   </div>
                 </div>
               ))}
@@ -224,5 +404,5 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
