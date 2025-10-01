@@ -34,8 +34,8 @@ export function AdminDashboardLayout({ children }: AdminDashboardLayoutProps) {
 
   const navigationItems = [
     { href: "/admin", icon: LayoutDashboard, label: "Dashboard" },
-    { href: "/admin/packages", icon: Package, label: "Packages" },
     { href: "/admin/destinations", icon: MapPin, label: "Destinations" },
+    { href: "/admin/packages", icon: Package, label: "Packages" },
     { href: "/admin/bookings", icon: Calendar, label: "Bookings" },
     { href: "/admin/users", icon: Users, label: "Users" },
     { href: "/admin/payments", icon: CreditCard, label: "Payments" },
