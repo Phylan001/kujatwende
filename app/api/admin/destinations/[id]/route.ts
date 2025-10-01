@@ -1,9 +1,11 @@
-// app/api/destinations/[id]/route.ts
-import { NextRequest, NextResponse } from "next/server"
-import { ObjectId } from "mongodb"
-import { getDb } from "@/lib/db"
-import { deleteFromCloudinary } from "@/lib/cloudinary"
-import type { Destination, UpdateDestinationDTO } from "@/lib/models/Destination"
+import { NextRequest, NextResponse } from "next/server";
+import { ObjectId } from "mongodb";
+import { getDatabase } from "@/lib/mongodb";
+import { deleteFromCloudinary } from "@/lib/cloudinary";
+import type {
+  Destination,
+  UpdateDestinationDTO,
+} from "@/lib/models/Destination";
 
 /**
  * GET /api/destinations/[id]
@@ -14,52 +16,53 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const db = await getDb()
-    const { id } = params
-    
+    const db = await getDatabase();
+    const { id } = params;
+
     // Validate ObjectId
     if (!ObjectId.isValid(id)) {
       return NextResponse.json(
         { success: false, error: "Invalid destination ID" },
         { status: 400 }
-      )
+      );
     }
-    
+
     // Fetch destination
     const destination = await db
       .collection<Destination>("destinations")
-      .findOne({ _id: new ObjectId(id) })
-    
+      .findOne({ _id: new ObjectId(id) });
+
     if (!destination) {
       return NextResponse.json(
         { success: false, error: "Destination not found" },
         { status: 404 }
-      )
+      );
     }
-    
+
     // Optionally fetch associated packages
-    const includePackages = request.nextUrl.searchParams.get("includePackages") === "true"
-    let packages = []
-    
+    const includePackages =
+      request.nextUrl.searchParams.get("includePackages") === "true";
+    let packages = [];
+
     if (includePackages) {
       packages = await db
         .collection("packages")
         .find({ destinationId: new ObjectId(id) })
         .sort({ featured: -1, price: 1 })
-        .toArray()
+        .toArray();
     }
-    
+
     return NextResponse.json({
       success: true,
       destination,
-      packages: includePackages ? packages : undefined
-    })
+      packages: includePackages ? packages : undefined,
+    });
   } catch (error) {
-    console.error("Error fetching destination:", error)
+    console.error("Error fetching destination:", error);
     return NextResponse.json(
       { success: false, error: "Failed to fetch destination" },
       { status: 500 }
-    )
+    );
   }
 }
 
@@ -74,31 +77,31 @@ export async function PATCH(
 ) {
   try {
     // TODO: Add authentication middleware
-    const db = await getDb()
-    const { id } = params
-    const body: UpdateDestinationDTO = await request.json()
-    
+    const db = await getDatabase();
+    const { id } = params;
+    const body: UpdateDestinationDTO = await request.json();
+
     if (!ObjectId.isValid(id)) {
       return NextResponse.json(
         { success: false, error: "Invalid destination ID" },
         { status: 400 }
-      )
+      );
     }
-    
+
     // Build update document
     const updateDoc: any = {
       ...body,
-      updatedAt: new Date()
-    }
-    
+      updatedAt: new Date(),
+    };
+
     // If name is updated, regenerate slug
     if (body.name) {
       updateDoc.slug = body.name
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "")
+        .replace(/(^-|-$)/g, "");
     }
-    
+
     // Update destination
     const result = await db
       .collection("destinations")
@@ -106,26 +109,26 @@ export async function PATCH(
         { _id: new ObjectId(id) },
         { $set: updateDoc },
         { returnDocument: "after" }
-      )
-    
+      );
+
     if (!result) {
       return NextResponse.json(
         { success: false, error: "Destination not found" },
         { status: 404 }
-      )
+      );
     }
-    
+
     return NextResponse.json({
       success: true,
       destination: result,
-      message: "Destination updated successfully"
-    })
+      message: "Destination updated successfully",
+    });
   } catch (error) {
-    console.error("Error updating destination:", error)
+    console.error("Error updating destination:", error);
     return NextResponse.json(
       { success: false, error: "Failed to update destination" },
       { status: 500 }
-    )
+    );
   }
 }
 
@@ -140,73 +143,75 @@ export async function DELETE(
 ) {
   try {
     // TODO: Add authentication middleware
-    const db = await getDb()
-    const { id } = params
-    
+    const db = await getDatabase();
+    const { id } = params;
+
     if (!ObjectId.isValid(id)) {
       return NextResponse.json(
         { success: false, error: "Invalid destination ID" },
         { status: 400 }
-      )
+      );
     }
-    
+
     // Fetch destination to get image public IDs
     const destination = await db
       .collection<Destination>("destinations")
-      .findOne({ _id: new ObjectId(id) })
-    
+      .findOne({ _id: new ObjectId(id) });
+
     if (!destination) {
       return NextResponse.json(
         { success: false, error: "Destination not found" },
         { status: 404 }
-      )
+      );
     }
-    
+
     // Check if destination has packages
     const packagesCount = await db
       .collection("packages")
-      .countDocuments({ destinationId: new ObjectId(id) })
-    
+      .countDocuments({ destinationId: new ObjectId(id) });
+
     if (packagesCount > 0) {
       return NextResponse.json(
-        { 
-          success: false, 
-          error: `Cannot delete destination with ${packagesCount} active package(s). Delete packages first.` 
+        {
+          success: false,
+          error: `Cannot delete destination with ${packagesCount} active package(s). Delete packages first.`,
         },
         { status: 409 }
-      )
+      );
     }
-    
+
     // Delete all images from Cloudinary
-    const deletePromises = []
-    
+    const deletePromises = [];
+
     if (destination.bannerImage?.publicId) {
-      deletePromises.push(deleteFromCloudinary(destination.bannerImage.publicId))
+      deletePromises.push(
+        deleteFromCloudinary(destination.bannerImage.publicId)
+      );
     }
-    
+
     if (destination.gallery && destination.gallery.length > 0) {
-      destination.gallery.forEach(img => {
+      destination.gallery.forEach((img) => {
         if (img.publicId) {
-          deletePromises.push(deleteFromCloudinary(img.publicId))
+          deletePromises.push(deleteFromCloudinary(img.publicId));
         }
-      })
+      });
     }
-    
+
     // Execute all deletions
-    await Promise.allSettled(deletePromises)
-    
+    await Promise.allSettled(deletePromises);
+
     // Delete destination document
-    await db.collection("destinations").deleteOne({ _id: new ObjectId(id) })
-    
+    await db.collection("destinations").deleteOne({ _id: new ObjectId(id) });
+
     return NextResponse.json({
       success: true,
-      message: "Destination and associated images deleted successfully"
-    })
+      message: "Destination and associated images deleted successfully",
+    });
   } catch (error) {
-    console.error("Error deleting destination:", error)
+    console.error("Error deleting destination:", error);
     return NextResponse.json(
       { success: false, error: "Failed to delete destination" },
       { status: 500 }
-    )
+    );
   }
 }
