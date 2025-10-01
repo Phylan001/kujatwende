@@ -111,7 +111,7 @@ export default function LoginPage() {
       <div className="relative z-10 w-full max-w-md">
         <Card className="glass border-white/10 animate-fade-scale">
           <CardHeader className="text-center">
-            <div className="w-16 h-16 bg-gradient-to-r from-cyan-400 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4">
               <Image
                 src="/logo.png"
                 alt="KujaTwende Icon"
