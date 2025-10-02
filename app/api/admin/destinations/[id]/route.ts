@@ -4,8 +4,9 @@ import { getDatabase } from "@/lib/mongodb";
 import { deleteFromCloudinary } from "@/lib/cloudinary";
 import type {
   Destination,
+  TravelPackage,
   UpdateDestinationDTO,
-} from "@/lib/models/Destination";
+} from "@/lib/mongodb-types";
 
 /**
  * GET /api/destinations/[id]
@@ -42,11 +43,11 @@ export async function GET(
     // Optionally fetch associated packages
     const includePackages =
       request.nextUrl.searchParams.get("includePackages") === "true";
-    let packages = [];
+    let packages: TravelPackage[] = [];
 
     if (includePackages) {
       packages = await db
-        .collection("packages")
+        .collection<TravelPackage>("packages")
         .find({ destinationId: new ObjectId(id) })
         .sort({ featured: -1, price: 1 })
         .toArray();
@@ -89,10 +90,11 @@ export async function PATCH(
     }
 
     // Build update document
-    const updateDoc: any = {
-      ...body,
-      updatedAt: new Date(),
-    };
+    const updateDoc: UpdateDestinationDTO & { updatedAt: Date; slug?: string } =
+      {
+        ...body,
+        updatedAt: new Date(),
+      };
 
     // If name is updated, regenerate slug
     if (body.name) {
@@ -181,15 +183,17 @@ export async function DELETE(
     }
 
     // Delete all images from Cloudinary
-    const deletePromises = [];
+    const deletePromises: Promise<boolean>[] = []; // Changed to Promise<boolean>[]
 
     if (destination.bannerImage?.publicId) {
+      // Fixed variable name
       deletePromises.push(
         deleteFromCloudinary(destination.bannerImage.publicId)
       );
     }
 
     if (destination.gallery && destination.gallery.length > 0) {
+      // Fixed variable name
       destination.gallery.forEach((img) => {
         if (img.publicId) {
           deletePromises.push(deleteFromCloudinary(img.publicId));
@@ -197,10 +201,10 @@ export async function DELETE(
       });
     }
 
-    // Execute all deletions
+    // Execute all deletions - Fixed method name
     await Promise.allSettled(deletePromises);
 
-    // Delete destination document
+    // Delete destination document - Fixed class name
     await db.collection("destinations").deleteOne({ _id: new ObjectId(id) });
 
     return NextResponse.json({

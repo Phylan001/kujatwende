@@ -2,14 +2,33 @@ import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { getDatabase } from "@/lib/mongodb";
 import { uploadToCloudinary, deleteFromCloudinary } from "@/lib/cloudinary";
+import type {
+  Destination,
+  CloudinaryImage,
+  GalleryImage,
+} from "@/lib/mongodb-types";
+
+interface UploadResults {
+  banner: CloudinaryImage | { error: string } | null;
+  gallery: (GalleryImage | { error: string })[];
+}
+
+interface ImageUpdates {
+  updatedAt: Date;
+  bannerImage?: CloudinaryImage;
+  gallery?: GalleryImage[];
+}
+
+interface DeleteImageBody {
+  type: "banner" | "gallery";
+  publicId?: string;
+  galleryIndex?: number;
+}
 
 /**
  * POST /api/destinations/[id]/images
  * Upload images (banner and/or gallery) for a destination
  * Expects multipart/form-data with 'bannerImage' and/or 'galleryImages[]'
- *
- * Strategy: Process images in parallel with error handling for partial failures
- * Complexity: O(n) where n is number of images
  */
 export async function POST(
   request: NextRequest,
@@ -28,7 +47,7 @@ export async function POST(
 
     // Verify destination exists
     const destination = await db
-      .collection("destinations")
+      .collection<Destination>("destinations")
       .findOne({ _id: new ObjectId(id) });
 
     if (!destination) {
@@ -44,8 +63,8 @@ export async function POST(
     const galleryFiles = formData.getAll("galleryImages") as File[];
     const imageCaptions = formData.getAll("captions") as string[];
 
-    const updates: any = { updatedAt: new Date() };
-    const uploadResults: any = {
+    const updates: ImageUpdates = { updatedAt: new Date() };
+    const uploadResults: UploadResults = {
       banner: null,
       gallery: [],
     };
@@ -65,14 +84,15 @@ export async function POST(
             "kuja-twende/destinations"
         );
 
-        updates.bannerImage = {
+        const bannerImage: CloudinaryImage = {
           publicId: result.public_id,
           url: result.secure_url,
           width: result.width,
           height: result.height,
         };
 
-        uploadResults.banner = updates.bannerImage;
+        updates.bannerImage = bannerImage;
+        uploadResults.banner = bannerImage;
       } catch (error) {
         console.error("Banner image upload failed:", error);
         uploadResults.banner = { error: "Failed to upload banner image" };
@@ -81,47 +101,52 @@ export async function POST(
 
     // Upload gallery images if provided
     if (galleryFiles && galleryFiles.length > 0) {
-      const existingGallery = destination.gallery || [];
-      const newGalleryImages = [];
+      const existingGallery: GalleryImage[] = destination.gallery || [];
+      const newGalleryImages: GalleryImage[] = [];
 
       // Process gallery uploads in parallel with individual error handling
-      const uploadPromises = galleryFiles.map(async (file, index) => {
-        if (file.size === 0) return null;
+      const uploadPromises = galleryFiles.map(
+        async (file: File, index: number) => {
+          if (file.size === 0) return null;
 
-        try {
-          const result = await uploadToCloudinary(
-            file,
-            process.env.CLOUDINARY_DESTINATION_FOLDER ||
-              "kuja-twende/destinations"
-          );
+          try {
+            const result = await uploadToCloudinary(
+              file,
+              process.env.CLOUDINARY_DESTINATION_FOLDER ||
+                "kuja-twende/destinations"
+            );
 
-          return {
-            publicId: result.public_id,
-            url: result.secure_url,
-            width: result.width,
-            height: result.height,
-            caption: imageCaptions[index] || "",
-          };
-        } catch (error) {
-          console.error(`Gallery image ${index} upload failed:`, error);
-          return { error: `Failed to upload image ${index + 1}` };
+            const galleryImage: GalleryImage = {
+              publicId: result.public_id,
+              url: result.secure_url,
+              width: result.width,
+              height: result.height,
+              caption: imageCaptions[index] || "",
+            };
+
+            return galleryImage;
+          } catch (error) {
+            console.error(`Gallery image ${index} upload failed:`, error);
+            return { error: `Failed to upload image ${index + 1}` } as {
+              error: string;
+            };
+          }
         }
-      });
+      );
 
       const results = await Promise.all(uploadPromises);
 
       // Filter successful uploads
       results.forEach((result) => {
-        if (result && !result.error) {
+        if (result && !("error" in result)) {
           newGalleryImages.push(result);
-        } else if (result?.error) {
+        } else if (result && "error" in result) {
           uploadResults.gallery.push(result);
         }
       });
 
       // Merge with existing gallery (limit to 20 images total)
       updates.gallery = [...existingGallery, ...newGalleryImages].slice(0, 20);
-      uploadResults.gallery = newGalleryImages;
     }
 
     // Update destination with new images
@@ -158,7 +183,7 @@ export async function DELETE(
   try {
     const db = await getDatabase();
     const { id } = params;
-    const body = await request.json();
+    const body: DeleteImageBody = await request.json();
 
     if (!ObjectId.isValid(id)) {
       return NextResponse.json(
@@ -168,7 +193,7 @@ export async function DELETE(
     }
 
     const destination = await db
-      .collection("destinations")
+      .collection<Destination>("destinations")
       .findOne({ _id: new ObjectId(id) });
 
     if (!destination) {
@@ -178,7 +203,13 @@ export async function DELETE(
       );
     }
 
-    let updateOperation: any = { updatedAt: new Date() };
+    interface UpdateOperation {
+      updatedAt: Date;
+      bannerImage?: null;
+      gallery?: GalleryImage[];
+    }
+
+    let updateOperation: UpdateOperation = { updatedAt: new Date() };
 
     // Delete banner image
     if (body.type === "banner" && destination.bannerImage?.publicId) {
@@ -188,13 +219,15 @@ export async function DELETE(
 
     // Delete specific gallery image
     if (body.type === "gallery") {
-      const gallery = destination.gallery || [];
-      let imageToDelete;
+      const gallery: GalleryImage[] = destination.gallery || [];
+      let imageToDelete: GalleryImage | undefined;
 
       if (typeof body.galleryIndex === "number") {
         imageToDelete = gallery[body.galleryIndex];
       } else if (body.publicId) {
-        imageToDelete = gallery.find((img) => img.publicId === body.publicId);
+        imageToDelete = gallery.find(
+          (img: GalleryImage) => img.publicId === body.publicId
+        );
       }
 
       if (imageToDelete?.publicId) {
@@ -202,7 +235,7 @@ export async function DELETE(
 
         // Remove from gallery array
         updateOperation.gallery = gallery.filter(
-          (img) => img.publicId !== imageToDelete.publicId
+          (img: GalleryImage) => img.publicId !== imageToDelete!.publicId
         );
       } else {
         return NextResponse.json(
