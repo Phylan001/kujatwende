@@ -19,6 +19,7 @@ import PackageForm from "@/components/admin/packages/PackageForm";
 import PackageView from "@/components/admin/packages/PackageView";
 import EmptyState from "@/components/admin/packages/EmptyState";
 import { Destination, TravelPackage } from "@/components/admin/packages/types";
+import { useToast } from "@/hooks/use-toast";
 
 export default function PackagesPage() {
   const [packages, setPackages] = useState<TravelPackage[]>([]);
@@ -34,6 +35,7 @@ export default function PackagesPage() {
     null
   );
   const [submitting, setSubmitting] = useState(false);
+  const { toast } = useToast();
 
   // Form state
   const [formData, setFormData] = useState({
@@ -147,7 +149,11 @@ export default function PackagesPage() {
 
   const handleCreatePackage = async () => {
     if (!formData.name || !formData.destinationId || !formData.description) {
-      alert("Please fill in all required fields");
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -250,13 +256,24 @@ export default function PackagesPage() {
         resetForm();
         fetchPackages();
         fetchDestinations(); // Refresh to update package counts
-        alert("Package created successfully!");
+        toast({
+          title: "Success",
+          description: "Package created successfully!",
+        });
       } else {
-        alert(data.error || "Failed to create package");
+        toast({
+          title: "Error",
+          description: data.error || "Failed to create package",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error creating package:", error);
-      alert("Failed to create package");
+      toast({
+        title: "Error",
+        description: "Failed to create package",
+        variant: "destructive",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -363,13 +380,24 @@ export default function PackagesPage() {
         resetForm();
         fetchPackages();
         fetchDestinations();
-        alert("Package updated successfully!");
+        toast({
+          title: "Success",
+          description: "Package updated successfully!",
+        });
       } else {
-        alert(data.error || "Failed to update package");
+        toast({
+          title: "Error",
+          description: data.error || "Failed to update package",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error updating package:", error);
-      alert("Failed to update package");
+      toast({
+        title: "Error",
+        description: "Failed to update package",
+        variant: "destructive",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -391,13 +419,24 @@ export default function PackagesPage() {
       if (data.success) {
         fetchPackages();
         fetchDestinations();
-        alert("Package deleted successfully!");
+        toast({
+          title: "Success",
+          description: "Package deleted successfully!",
+        });
       } else {
-        alert(data.error || "Failed to delete package");
+        toast({
+          title: "Error",
+          description: data.error || "Failed to delete package",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error deleting package:", error);
-      alert("Failed to delete package");
+      toast({
+        title: "Error",
+        description: "Failed to delete package",
+        variant: "destructive",
+      });
     }
   };
 
@@ -505,8 +544,10 @@ export default function PackagesPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400"></div>
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-20 w-20 sm:h-32 sm:w-32 border-b-2 border-cyan-400 mx-auto"></div>
+        </div>
       </div>
     );
   }
