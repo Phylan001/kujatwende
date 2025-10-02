@@ -26,7 +26,21 @@ import {
   ArrowUpRight,
   ArrowDownRight,
 } from "lucide-react";
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 interface AnalyticsData {
   revenue: {
@@ -151,12 +165,21 @@ export default function AnalyticsPage() {
     }
   };
 
-  const COLORS = ["#06b6d4", "#8b5cf6", "#f59e0b", "#10b981", "#ef4444", "#ec4899"];
+  const COLORS = [
+    "#06b6d4",
+    "#8b5cf6",
+    "#f59e0b",
+    "#10b981",
+    "#ef4444",
+    "#ec4899",
+  ];
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400"></div>
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-20 w-20 sm:h-32 sm:w-32 border-b-2 border-cyan-400 mx-auto"></div>
+        </div>
       </div>
     );
   }
@@ -221,7 +244,9 @@ export default function AnalyticsPage() {
                   </span>
                 </>
               )}
-              <span className="text-slate-400 text-xs ml-1">vs last period</span>
+              <span className="text-slate-400 text-xs ml-1">
+                vs last period
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -255,7 +280,9 @@ export default function AnalyticsPage() {
                   </span>
                 </>
               )}
-              <span className="text-slate-400 text-xs ml-1">vs last period</span>
+              <span className="text-slate-400 text-xs ml-1">
+                vs last period
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -289,7 +316,9 @@ export default function AnalyticsPage() {
                   </span>
                 </>
               )}
-              <span className="text-slate-400 text-xs ml-1">vs last period</span>
+              <span className="text-slate-400 text-xs ml-1">
+                vs last period
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -305,12 +334,17 @@ export default function AnalyticsPage() {
               </div>
             </div>
             <h3 className="text-2xl sm:text-3xl font-bold text-orange-400">
-              KSh {Math.round(analytics.revenue.total / analytics.bookings.total).toLocaleString()}
+              KSh{" "}
+              {Math.round(
+                analytics.revenue.total / analytics.bookings.total
+              ).toLocaleString()}
             </h3>
             <div className="flex items-center gap-1 mt-2">
               <ArrowUpRight className="w-4 h-4 text-green-400" />
               <span className="text-green-400 text-sm font-medium">+8.2%</span>
-              <span className="text-slate-400 text-xs ml-1">vs last period</span>
+              <span className="text-slate-400 text-xs ml-1">
+                vs last period
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -332,23 +366,30 @@ export default function AnalyticsPage() {
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={analytics.revenue.monthly}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                <XAxis dataKey="month" stroke="#94a3b8" style={{ fontSize: '12px' }} />
-                <YAxis stroke="#94a3b8" style={{ fontSize: '12px' }} />
+                <XAxis
+                  dataKey="month"
+                  stroke="#94a3b8"
+                  style={{ fontSize: "12px" }}
+                />
+                <YAxis stroke="#94a3b8" style={{ fontSize: "12px" }} />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#1e293b',
-                    border: '1px solid #334155',
-                    borderRadius: '8px',
-                    color: '#fff',
+                    backgroundColor: "#1e293b",
+                    border: "1px solid #334155",
+                    borderRadius: "8px",
+                    color: "#fff",
                   }}
-                  formatter={(value: number) => [`KSh ${value.toLocaleString()}`, 'Revenue']}
+                  formatter={(value: number) => [
+                    `KSh ${value.toLocaleString()}`,
+                    "Revenue",
+                  ]}
                 />
                 <Line
                   type="monotone"
                   dataKey="amount"
                   stroke="#06b6d4"
                   strokeWidth={3}
-                  dot={{ fill: '#06b6d4', r: 4 }}
+                  dot={{ fill: "#06b6d4", r: 4 }}
                   activeDot={{ r: 6 }}
                 />
               </LineChart>
@@ -370,16 +411,20 @@ export default function AnalyticsPage() {
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={analytics.bookings.monthly}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                <XAxis dataKey="month" stroke="#94a3b8" style={{ fontSize: '12px' }} />
-                <YAxis stroke="#94a3b8" style={{ fontSize: '12px' }} />
+                <XAxis
+                  dataKey="month"
+                  stroke="#94a3b8"
+                  style={{ fontSize: "12px" }}
+                />
+                <YAxis stroke="#94a3b8" style={{ fontSize: "12px" }} />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#1e293b',
-                    border: '1px solid #334155',
-                    borderRadius: '8px',
-                    color: '#fff',
+                    backgroundColor: "#1e293b",
+                    border: "1px solid #334155",
+                    borderRadius: "8px",
+                    color: "#fff",
                   }}
-                  formatter={(value: number) => [value, 'Bookings']}
+                  formatter={(value: number) => [value, "Bookings"]}
                 />
                 <Bar dataKey="count" fill="#8b5cf6" radius={[8, 8, 0, 0]} />
               </BarChart>
@@ -404,16 +449,20 @@ export default function AnalyticsPage() {
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={analytics.users.newUsers}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                <XAxis dataKey="month" stroke="#94a3b8" style={{ fontSize: '12px' }} />
-                <YAxis stroke="#94a3b8" style={{ fontSize: '12px' }} />
+                <XAxis
+                  dataKey="month"
+                  stroke="#94a3b8"
+                  style={{ fontSize: "12px" }}
+                />
+                <YAxis stroke="#94a3b8" style={{ fontSize: "12px" }} />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#1e293b',
-                    border: '1px solid #334155',
-                    borderRadius: '8px',
-                    color: '#fff',
+                    backgroundColor: "#1e293b",
+                    border: "1px solid #334155",
+                    borderRadius: "8px",
+                    color: "#fff",
                   }}
-                  formatter={(value: number) => [value, 'New Users']}
+                  formatter={(value: number) => [value, "New Users"]}
                 />
                 <Bar dataKey="count" fill="#10b981" radius={[8, 8, 0, 0]} />
               </BarChart>
@@ -445,15 +494,18 @@ export default function AnalyticsPage() {
                   dataKey="count"
                 >
                   {analytics.paymentMethods.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={COLORS[index % COLORS.length]}
+                    />
                   ))}
                 </Pie>
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#1e293b',
-                    border: '1px solid #334155',
-                    borderRadius: '8px',
-                    color: '#fff',
+                    backgroundColor: "#1e293b",
+                    border: "1px solid #334155",
+                    borderRadius: "8px",
+                    color: "#fff",
                   }}
                 />
               </PieChart>
@@ -489,7 +541,9 @@ export default function AnalyticsPage() {
                       </span>
                     </div>
                     <div>
-                      <p className="text-white font-medium text-sm">{pkg.name}</p>
+                      <p className="text-white font-medium text-sm">
+                        {pkg.name}
+                      </p>
                       <p className="text-slate-400 text-xs">
                         {pkg.bookings} bookings
                       </p>
@@ -531,12 +585,18 @@ export default function AnalyticsPage() {
                     </span>
                   </div>
                   <div className="flex-1">
-                    <p className="text-white font-medium text-sm">{dest.name}</p>
+                    <p className="text-white font-medium text-sm">
+                      {dest.name}
+                    </p>
                     <div className="mt-1 bg-slate-600/50 rounded-full h-2 overflow-hidden">
                       <div
                         className="h-full bg-gradient-to-r from-cyan-400 to-purple-600"
                         style={{
-                          width: `${(dest.bookings / analytics.topDestinations[0].bookings) * 100}%`,
+                          width: `${
+                            (dest.bookings /
+                              analytics.topDestinations[0].bookings) *
+                            100
+                          }%`,
                         }}
                       />
                     </div>
@@ -602,7 +662,9 @@ export default function AnalyticsPage() {
             <div className="p-4 bg-slate-700/30 rounded-lg border-l-4 border-orange-500">
               <div className="flex items-center gap-2 mb-2">
                 <DollarSign className="w-5 h-5 text-orange-400" />
-                <p className="text-sm font-medium text-white">Conversion Rate</p>
+                <p className="text-sm font-medium text-white">
+                  Conversion Rate
+                </p>
               </div>
               <p className="text-2xl font-bold text-orange-400">23%</p>
               <p className="text-xs text-slate-400 mt-1">

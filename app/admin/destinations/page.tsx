@@ -22,6 +22,7 @@ import {
   Destination,
   FormData as DestinationFormData,
 } from "@/components/admin/destinations/types";
+import { useToast } from "@/hooks/use-toast";
 
 export default function DestinationsPage() {
   const [destinations, setDestinations] = useState<Destination[]>([]);
@@ -33,6 +34,7 @@ export default function DestinationsPage() {
   const [selectedDestination, setSelectedDestination] =
     useState<Destination | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const { toast } = useToast();
 
   // Form state
   const [formData, setFormData] = useState<DestinationFormData>({
@@ -158,7 +160,11 @@ export default function DestinationsPage() {
       const createData = await createResponse.json();
 
       if (!createData.success) {
-        alert(createData.error || "Failed to create destination");
+        toast({
+          title: "Error",
+          description: createData.error || "Failed to create destination",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -189,10 +195,17 @@ export default function DestinationsPage() {
       setIsAddDialogOpen(false);
       resetForm();
       fetchDestinations();
-      alert("Destination created successfully!");
+      toast({
+        title: "Success",
+        description: "Destination created successfully!",
+      });
     } catch (error) {
       console.error("Error creating destination:", error);
-      alert("Failed to create destination");
+      toast({
+        title: "Error",
+        description: "Failed to create destination",
+        variant: "destructive",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -246,7 +259,11 @@ export default function DestinationsPage() {
       const data = await response.json();
 
       if (!data.success) {
-        alert(data.error || "Failed to update destination");
+        toast({
+          title: "Error",
+          description: data.error || "Failed to update destination",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -278,10 +295,17 @@ export default function DestinationsPage() {
       setIsEditDialogOpen(false);
       resetForm();
       fetchDestinations();
-      alert("Destination updated successfully!");
+      toast({
+        title: "Success",
+        description: "Destination updated successfully!",
+      });
     } catch (error) {
       console.error("Error updating destination:", error);
-      alert("Failed to update destination");
+      toast({
+        title: "Error",
+        description: "Failed to update destination",
+        variant: "destructive",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -307,13 +331,24 @@ export default function DestinationsPage() {
 
       if (data.success) {
         fetchDestinations();
-        alert("Destination deleted successfully!");
+        toast({
+          title: "Success",
+          description: "Destination deleted successfully!",
+        });
       } else {
-        alert(data.error || "Failed to delete destination");
+        toast({
+          title: "Error",
+          description: data.error || "Failed to delete destination",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error deleting destination:", error);
-      alert("Failed to delete destination");
+      toast({
+        title: "Error",
+        description: "Failed to delete destination",
+        variant: "destructive",
+      });
     }
   };
 
@@ -366,8 +401,10 @@ export default function DestinationsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400"></div>
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-20 w-20 sm:h-32 sm:w-32 border-b-2 border-cyan-400 mx-auto"></div>
+        </div>
       </div>
     );
   }

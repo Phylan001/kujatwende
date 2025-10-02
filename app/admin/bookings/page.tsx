@@ -188,8 +188,10 @@ export default function BookingsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400"></div>
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-20 w-20 sm:h-32 sm:w-32 border-b-2 border-cyan-400 mx-auto"></div>
+        </div>
       </div>
     );
   }
@@ -327,16 +329,22 @@ export default function BookingsPage() {
                       <p className="text-white font-medium text-sm mt-1">
                         {booking.userName}
                       </p>
-                      <p className="text-slate-400 text-xs">{booking.userEmail}</p>
+                      <p className="text-slate-400 text-xs">
+                        {booking.userEmail}
+                      </p>
                     </div>
                     <div className="flex flex-col gap-1 items-end">
-                      <Badge className={getBookingStatusColor(booking.bookingStatus)}>
+                      <Badge
+                        className={getBookingStatusColor(booking.bookingStatus)}
+                      >
                         <span className="flex items-center gap-1 text-xs">
                           {getStatusIcon(booking.bookingStatus)}
                           {booking.bookingStatus}
                         </span>
                       </Badge>
-                      <Badge className={getPaymentStatusColor(booking.paymentStatus)}>
+                      <Badge
+                        className={getPaymentStatusColor(booking.paymentStatus)}
+                      >
                         <span className="flex items-center gap-1 text-xs">
                           {getStatusIcon(booking.paymentStatus)}
                           {booking.paymentStatus}
@@ -423,14 +431,22 @@ export default function BookingsPage() {
                     </td>
                     <td className="p-3">
                       <div>
-                        <p className="text-white/80 text-sm">{booking.userName}</p>
-                        <p className="text-white/50 text-xs">{booking.userEmail}</p>
+                        <p className="text-white/80 text-sm">
+                          {booking.userName}
+                        </p>
+                        <p className="text-white/50 text-xs">
+                          {booking.userEmail}
+                        </p>
                       </div>
                     </td>
                     <td className="p-3">
                       <div>
-                        <p className="text-white/80 text-sm">{booking.packageName}</p>
-                        <p className="text-white/50 text-xs">{booking.destination}</p>
+                        <p className="text-white/80 text-sm">
+                          {booking.packageName}
+                        </p>
+                        <p className="text-white/50 text-xs">
+                          {booking.destination}
+                        </p>
                       </div>
                     </td>
                     <td className="p-3 text-white/80 text-sm">
@@ -440,7 +456,9 @@ export default function BookingsPage() {
                       KSh {booking.totalAmount.toLocaleString()}
                     </td>
                     <td className="p-3">
-                      <Badge className={getBookingStatusColor(booking.bookingStatus)}>
+                      <Badge
+                        className={getBookingStatusColor(booking.bookingStatus)}
+                      >
                         <span className="flex items-center gap-1 text-xs">
                           {getStatusIcon(booking.bookingStatus)}
                           {booking.bookingStatus}
@@ -448,7 +466,9 @@ export default function BookingsPage() {
                       </Badge>
                     </td>
                     <td className="p-3">
-                      <Badge className={getPaymentStatusColor(booking.paymentStatus)}>
+                      <Badge
+                        className={getPaymentStatusColor(booking.paymentStatus)}
+                      >
                         <span className="flex items-center gap-1 text-xs">
                           {getStatusIcon(booking.paymentStatus)}
                           {booking.paymentStatus}
@@ -507,7 +527,10 @@ export default function BookingsPage() {
                 <div>
                   <p className="text-xs text-slate-400">Booking Date</p>
                   <p className="text-white">
-                    {format(new Date(selectedBooking.createdAt), "MMM dd, yyyy")}
+                    {format(
+                      new Date(selectedBooking.createdAt),
+                      "MMM dd, yyyy"
+                    )}
                   </p>
                 </div>
               </div>
@@ -521,15 +544,21 @@ export default function BookingsPage() {
                 <div className="space-y-2 p-4 bg-slate-700/30 rounded-lg">
                   <div className="flex items-center gap-2">
                     <User className="w-4 h-4 text-slate-400" />
-                    <span className="text-white">{selectedBooking.userName}</span>
+                    <span className="text-white">
+                      {selectedBooking.userName}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Mail className="w-4 h-4 text-slate-400" />
-                    <span className="text-white">{selectedBooking.userEmail}</span>
+                    <span className="text-white">
+                      {selectedBooking.userEmail}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Phone className="w-4 h-4 text-slate-400" />
-                    <span className="text-white">{selectedBooking.userPhone}</span>
+                    <span className="text-white">
+                      {selectedBooking.userPhone}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -543,7 +572,9 @@ export default function BookingsPage() {
                 <div className="space-y-2 p-4 bg-slate-700/30 rounded-lg">
                   <div>
                     <p className="text-xs text-slate-400">Package Name</p>
-                    <p className="text-white font-medium">{selectedBooking.packageName}</p>
+                    <p className="text-white font-medium">
+                      {selectedBooking.packageName}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs text-slate-400">Destination</p>
@@ -553,12 +584,17 @@ export default function BookingsPage() {
                     <div>
                       <p className="text-xs text-slate-400">Travel Date</p>
                       <p className="text-white">
-                        {format(new Date(selectedBooking.travelDate), "MMM dd, yyyy")}
+                        {format(
+                          new Date(selectedBooking.travelDate),
+                          "MMM dd, yyyy"
+                        )}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs text-slate-400">Travelers</p>
-                      <p className="text-white">{selectedBooking.numberOfTravelers}</p>
+                      <p className="text-white">
+                        {selectedBooking.numberOfTravelers}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -578,10 +614,18 @@ export default function BookingsPage() {
                     </span>
                   </div>
                   <div className="flex gap-2">
-                    <Badge className={getBookingStatusColor(selectedBooking.bookingStatus)}>
+                    <Badge
+                      className={getBookingStatusColor(
+                        selectedBooking.bookingStatus
+                      )}
+                    >
                       {selectedBooking.bookingStatus}
                     </Badge>
-                    <Badge className={getPaymentStatusColor(selectedBooking.paymentStatus)}>
+                    <Badge
+                      className={getPaymentStatusColor(
+                        selectedBooking.paymentStatus
+                      )}
+                    >
                       {selectedBooking.paymentStatus}
                     </Badge>
                   </div>
@@ -591,7 +635,9 @@ export default function BookingsPage() {
               {/* Special Requests */}
               {selectedBooking.specialRequests && (
                 <div className="space-y-2">
-                  <h3 className="text-lg font-semibold text-white">Special Requests</h3>
+                  <h3 className="text-lg font-semibold text-white">
+                    Special Requests
+                  </h3>
                   <p className="text-slate-300 p-4 bg-slate-700/30 rounded-lg text-sm">
                     {selectedBooking.specialRequests}
                   </p>
