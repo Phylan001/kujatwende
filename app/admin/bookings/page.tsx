@@ -39,8 +39,12 @@ import {
   DollarSign,
   Mail,
   Phone,
+  AlertCircle,
 } from "lucide-react";
 import { format } from "date-fns";
+import { useAuth } from "@/components/providers/AuthProvider";
+import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
 
 interface Booking {
   _id: string;
@@ -62,6 +66,10 @@ interface Booking {
 }
 
 export default function BookingsPage() {
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
+  const [accessDenied, setAccessDenied] = useState(false);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -69,6 +77,22 @@ export default function BookingsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (authLoading) return;
+
+    if (!user) {
+      router.push("/auth/login");
+      return;
+    }
+
+    if (user.role !== "admin") {
+      setAccessDenied(true);
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 1500);
+    }
+  }, [user, authLoading, router]);
 
   useEffect(() => {
     fetchBookings();
@@ -186,14 +210,57 @@ export default function BookingsPage() {
     .filter((b) => b.paymentStatus === "paid")
     .reduce((sum, b) => sum + b.totalAmount, 0);
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center">
           <div className="animate-spin rounded-full h-20 w-20 sm:h-32 sm:w-32 border-b-2 border-cyan-400 mx-auto"></div>
+          <p className="text-white/70 mt-4 text-sm sm:text-base">
+            {authLoading ? "Verifying credentials..." : "Loading..."}
+          </p>
         </div>
       </div>
     );
+  }
+
+  if (accessDenied || (user && user.role !== "admin")) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Card className="glass border-red-500/20 max-w-md w-full">
+          <CardHeader className="text-center">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-6 h-6 sm:w-8 sm:h-8 text-red-400" />
+            </div>
+            <CardTitle className="text-xl sm:text-2xl font-bold text-red-400">
+              Access Denied
+            </CardTitle>
+            <CardDescription className="text-white/70 text-sm sm:text-base">
+              You don't have permission to access this page
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-center space-y-4">
+            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+              <p className="text-white/80 text-xs sm:text-sm">
+                This area is restricted to administrators only.
+                {user &&
+                  user.role === "user" &&
+                  " Redirecting to your dashboard..."}
+              </p>
+            </div>
+            <Button
+              onClick={() => router.push(user ? "/dashboard" : "/auth/login")}
+              className="w-full bg-gradient-to-r from-cyan-400 to-purple-600 hover:from-cyan-500 hover:to-purple-700 text-sm sm:text-base"
+            >
+              {user ? "Go to Dashboard" : "Go to Login"}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
   }
 
   return (
