@@ -1,7 +1,7 @@
 "use client"
 
 import type { ReactNode } from "react"
-import { useAuth } from "@/components/providers/AuthProvider"
+import { useAuth } from "@/providers/AuthProvider"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Home, Calendar, MapPin, CreditCard, Settings, LogOut, Bell, Search, User } from "lucide-react"

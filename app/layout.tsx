@@ -2,7 +2,7 @@ import type React from "react";
 import type { Metadata } from "next";
 import { Nunito_Sans, Fredoka, Baloo_2 } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
-import { AuthProvider } from "@/components/providers/AuthProvider";
+import { AuthProvider } from "@/providers/AuthProvider";
 import { Toaster } from "@/components/ui/toaster";
 import { Suspense } from "react";
 import "./globals.css";

@@ -29,7 +29,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { format } from "date-fns";
-import { useAuth } from "@/components/providers/AuthProvider";
+import { useAuth } from "@/providers/AuthProvider";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 

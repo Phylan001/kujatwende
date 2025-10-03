@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
+import DeleteDialog from "@/components/ui/delete-dialog";
 import { Plus, Package, AlertCircle } from "lucide-react";
 import Header from "@/components/admin/packages/Header";
 import SummaryCards from "@/components/admin/packages/SummaryCards";
@@ -20,7 +21,7 @@ import PackageView from "@/components/admin/packages/PackageView";
 import EmptyState from "@/components/admin/packages/EmptyState";
 import { Destination, TravelPackage } from "@/components/admin/packages/types";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/components/providers/AuthProvider";
+import { useAuth } from "@/providers/AuthProvider";
 import { useRouter } from "next/navigation";
 
 export default function PackagesPage() {
@@ -41,6 +42,12 @@ export default function PackagesPage() {
     null
   );
   const [submitting, setSubmitting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [packageToDelete, setPackageToDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -424,16 +431,24 @@ export default function PackagesPage() {
     }
   };
 
-  const handleDeletePackage = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this package?")) return;
+  const handleDeleteClick = (id: string, name: string) => {
+    setPackageToDelete({ id, name });
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!packageToDelete) return;
 
     try {
-      const response = await fetch(`/api/admin/packages/${id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth-token")}`,
-        },
-      });
+      const response = await fetch(
+        `/api/admin/packages/${packageToDelete.id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth-token")}`,
+          },
+        }
+      );
 
       const data = await response.json();
 
@@ -458,6 +473,10 @@ export default function PackagesPage() {
         description: "Failed to delete package",
         variant: "destructive",
       });
+    } finally {
+      setDeleteDialogOpen(false);
+      setDeleteConfirm("");
+      setPackageToDelete(null);
     }
   };
 
@@ -685,7 +704,7 @@ export default function PackagesPage() {
                   setIsViewDialogOpen(true);
                 }}
                 onEdit={openEditDialog}
-                onDelete={handleDeletePackage}
+                onDelete={(id) => handleDeleteClick(id, pkg.name)}
                 getStatusColor={getStatusColor}
                 getDifficultyColor={getDifficultyColor}
               />
@@ -695,6 +714,19 @@ export default function PackagesPage() {
           {filteredPackages.length === 0 && <EmptyState />}
         </CardContent>
       </Card>
+
+      <DeleteDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleConfirmDelete}
+        title="Delete Package"
+        description="This action cannot be undone. This will permanently delete the package and remove all associated data."
+        confirmText={packageToDelete?.name || ""}
+        itemName="this package"
+        confirmInput={deleteConfirm}
+        onConfirmInputChange={setDeleteConfirm}
+        isDeleting={false}
+      />
 
       <PackageForm
         isOpen={isEditDialogOpen}

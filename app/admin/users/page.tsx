@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from "@/components/providers/AuthProvider";
+import { useAuth } from "@/providers/AuthProvider";
 import { useRouter } from "next/navigation";
 import {
   Card,
@@ -27,6 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import DeleteDialog from "@/components/ui/delete-dialog";
 import {
   Users,
   Search,
@@ -68,6 +69,12 @@ export default function UsersPage() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [accessDenied, setAccessDenied] = useState(false);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [userToDelete, setUserToDelete] = useState<{
+    id: string;
+    email: string;
+  } | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -125,10 +132,11 @@ export default function UsersPage() {
     }
   };
 
-  const handleDeleteUser = async (userId: string, userEmail: string) => {
+  const handleDeleteClick = (userId: string, userEmail: string) => {
+    const userToDeleteObj = users.find((u) => u._id === userId);
+
     // Prevent deletion of admin accounts
-    const userToDelete = users.find((u) => u._id === userId);
-    if (userToDelete?.role === "admin") {
+    if (userToDeleteObj?.role === "admin") {
       toast({
         title: "Action denied",
         description: "Cannot delete admin accounts",
@@ -138,7 +146,7 @@ export default function UsersPage() {
     }
 
     // Prevent user from deleting their own account
-    if (userToDelete?.email === user?.email) {
+    if (userToDeleteObj?.email === user?.email) {
       toast({
         title: "Action denied",
         description: "You cannot delete your own account",
@@ -147,16 +155,16 @@ export default function UsersPage() {
       return;
     }
 
-    if (
-      !confirm(
-        `Are you sure you want to delete user: ${userEmail}? This action cannot be undone.`
-      )
-    )
-      return;
+    setUserToDelete({ id: userId, email: userEmail });
+    setDeleteDialogOpen(true);
+  };
 
-    setDeletingUserId(userId);
+  const handleConfirmDelete = async () => {
+    if (!userToDelete) return;
+
+    setDeletingUserId(userToDelete.id);
     try {
-      const response = await fetch(`/api/admin/users/${userId}`, {
+      const response = await fetch(`/api/admin/users/${userToDelete.id}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${localStorage.getItem("auth-token")}`,
@@ -183,6 +191,9 @@ export default function UsersPage() {
       });
     } finally {
       setDeletingUserId(null);
+      setDeleteDialogOpen(false);
+      setDeleteConfirm("");
+      setUserToDelete(null);
     }
   };
 
@@ -426,15 +437,14 @@ export default function UsersPage() {
                       </Button>
                       <Button
                         size="sm"
-                        onClick={() => handleDeleteUser(user._id, user.email)}
+                        onClick={() => handleDeleteClick(user._id, user.email)}
                         disabled={
                           isDeleteDisabled(user) || deletingUserId === user._id
                         }
-                        variant="outline"
-                        className={`text-xs h-8 px-2 ${
+                        className={`h-8 px-3 ${
                           isDeleteDisabled(user)
-                            ? "border-gray-500/50 text-gray-400 cursor-not-allowed opacity-50"
-                            : "border-red-500/50 text-red-400 hover:bg-red-500/10"
+                            ? "bg-gray-600 text-gray-400 cursor-not-allowed opacity-50"
+                            : "bg-red-600 hover:bg-red-700 text-white"
                         }`}
                       >
                         {deletingUserId === user._id ? (
@@ -530,7 +540,7 @@ export default function UsersPage() {
                             <Button
                               size="sm"
                               onClick={() =>
-                                handleDeleteUser(user._id, user.email)
+                                handleDeleteClick(user._id, user.email)
                               }
                               disabled={
                                 isDeleteDisabled(user) ||
@@ -569,6 +579,20 @@ export default function UsersPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* DeleteDialog */}
+      <DeleteDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleConfirmDelete}
+        title="Delete User"
+        description="This action cannot be undone. This will permanently delete the user account and remove all their data from our servers."
+        confirmText={userToDelete?.email || ""}
+        itemName="the user account"
+        confirmInput={deleteConfirm}
+        onConfirmInputChange={setDeleteConfirm}
+        isDeleting={deletingUserId !== null}
+      />
 
       {/* View User Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
