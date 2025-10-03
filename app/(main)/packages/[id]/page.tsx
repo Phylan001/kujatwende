@@ -16,7 +16,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import type { TravelPackage } from "@/lib/models/Package";
-import { useAuth } from "@/components/providers/AuthProvider";
+import { useAuth } from "@/providers/AuthProvider";
 import { BookingModal } from "@/components/booking/BookingModal";
 
 export default function PackageDetailPage() {

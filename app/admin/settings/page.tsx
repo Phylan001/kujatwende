@@ -9,18 +9,72 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Save, User, Bell, Lock, Globe, AlertCircle } from "lucide-react";
-import { useAuth } from "@/components/providers/AuthProvider";
+import { Save, User, Lock, Trash2, AlertCircle } from "lucide-react";
+import { useAuth } from "@/providers/AuthProvider";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function SettingsPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, logout, updateUser } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [accessDenied, setAccessDenied] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+
+  // Form states
+  const [profileData, setProfileData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+  });
+
+  const [securityData, setSecurityData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+
+  // Fetch user profile data including phone
+  const fetchUserProfile = async () => {
+    try {
+      const response = await fetch("/api/admin/users/me", {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("auth-token")}`,
+        },
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        setProfileData({
+          name: userData.name || "",
+          email: userData.email || "",
+          phone: userData.phone || "",
+        });
+      } else {
+        throw new Error("Failed to fetch user profile");
+      }
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load user profile data",
+        variant: "destructive",
+      });
+    }
+  };
 
   useEffect(() => {
     if (authLoading) return;
@@ -30,19 +84,172 @@ export default function SettingsPage() {
       return;
     }
 
-    if (user.role !== "admin") {
-      setAccessDenied(true);
-      setTimeout(() => {
-        router.push("/dashboard");
-      }, 1500);
-    }
+    // Fetch complete user profile data
+    const loadUserData = async () => {
+      await fetchUserProfile();
+      setLoading(false);
+    };
+
+    loadUserData();
   }, [user, authLoading, router]);
+
+  const handleProfileUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Check if any changes were actually made
+    const hasChanges = 
+      profileData.name !== user?.name || 
+      profileData.email !== user?.email || 
+      profileData.phone !== (user as any)?.phone;
+
+    if (!hasChanges) {
+      toast({
+        title: "No changes",
+        description: "No changes were made to your profile.",
+      });
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const response = await fetch("/api/admin/users/settings", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("auth-token")}`,
+        },
+        body: JSON.stringify(profileData),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        toast({
+          title: "Profile updated",
+          description: "Your profile has been updated successfully.",
+        });
+        
+        // Update the user context with new data
+        if (result.user && updateUser) {
+          updateUser(result.user);
+        }
+        
+        // Refresh the profile data
+        await fetchUserProfile();
+      } else {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to update profile");
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePasswordUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+
+    if (securityData.newPassword !== securityData.confirmPassword) {
+      toast({
+        title: "Error",
+        description: "New passwords do not match.",
+        variant: "destructive",
+      });
+      setSaving(false);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/admin/users/password", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("auth-token")}`,
+        },
+        body: JSON.stringify({
+          currentPassword: securityData.currentPassword,
+          newPassword: securityData.newPassword,
+        }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Password updated",
+          description: "Your password has been updated successfully.",
+        });
+        setSecurityData({
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        });
+      } else {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to update password");
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirm !== user?.email) {
+      toast({
+        title: "Error",
+        description: "Please type your email address to confirm deletion.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const response = await fetch("/api/admin/users", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("auth-token")}`,
+        },
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Account deleted",
+          description: "Your account has been permanently deleted.",
+        });
+        logout();
+        router.push("/");
+      } else {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to delete account");
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+      setDeleteDialogOpen(false);
+      setDeleteConfirm("");
+    }
+  };
 
   const tabs = [
     { id: "profile", label: "Profile", icon: User },
-    { id: "notifications", label: "Notifications", icon: Bell },
     { id: "security", label: "Security", icon: Lock },
-    { id: "general", label: "General", icon: Globe },
   ];
 
   if (authLoading || loading) {
@@ -51,45 +258,9 @@ export default function SettingsPage() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-20 w-20 sm:h-32 sm:w-32 border-b-2 border-cyan-400 mx-auto"></div>
           <p className="text-white/70 mt-4 text-sm sm:text-base">
-            {authLoading ? "Verifying credentials..." : "Loading..."}
+            {authLoading ? "Verifying credentials..." : "Loading settings..."}
           </p>
         </div>
-      </div>
-    );
-  }
-
-  if (accessDenied || (user && user.role !== "admin")) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <Card className="glass border-red-500/20 max-w-md w-full">
-          <CardHeader className="text-center">
-            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <AlertCircle className="w-6 h-6 sm:w-8 sm:h-8 text-red-400" />
-            </div>
-            <CardTitle className="text-xl sm:text-2xl font-bold text-red-400">
-              Access Denied
-            </CardTitle>
-            <CardDescription className="text-white/70 text-sm sm:text-base">
-              You don't have permission to access this page
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-center space-y-4">
-            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
-              <p className="text-white/80 text-xs sm:text-sm">
-                This area is restricted to administrators only.
-                {user &&
-                  user.role === "user" &&
-                  " Redirecting to your dashboard..."}
-              </p>
-            </div>
-            <Button
-              onClick={() => router.push(user ? "/dashboard" : "/auth/login")}
-              className="w-full bg-gradient-to-r from-cyan-400 to-purple-600 hover:from-cyan-500 hover:to-purple-700 text-sm sm:text-base"
-            >
-              {user ? "Go to Dashboard" : "Go to Login"}
-            </Button>
-          </CardContent>
-        </Card>
       </div>
     );
   }
@@ -99,231 +270,318 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold text-white">Settings</h2>
-        <p className="text-slate-400 mt-1">
-          Manage your account and application settings
-        </p>
-      </div>
+    <div className="min-h-screen p-4 sm:p-6">
+      <div className="max-w-6xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="space-y-2">
+          <h2 className="text-2xl sm:text-3xl font-bold text-white">
+            Settings
+          </h2>
+          <p className="text-slate-400 text-sm sm:text-base">
+            Manage your account
+          </p>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Sidebar Tabs */}
-        <Card className="bg-slate-800/50 border-slate-700/50 lg:col-span-1">
-          <CardContent className="p-4">
-            <div className="space-y-2">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
+          {/* Mobile Tabs */}
+          <div className="lg:hidden">
+            <select
+              value={activeTab}
+              onChange={(e) => setActiveTab(e.target.value)}
+              className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-lg text-white focus:outline-none focus:border-cyan-400"
+            >
               {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                    activeTab === tab.id
-                      ? "bg-gradient-to-r from-cyan-400/20 to-purple-600/20 text-white border border-cyan-400/30"
-                      : "text-slate-400 hover:text-white hover:bg-slate-700/30"
-                  }`}
-                >
-                  <tab.icon className="w-5 h-5" />
-                  <span className="font-medium">{tab.label}</span>
-                </button>
+                <option key={tab.id} value={tab.id}>
+                  {tab.label}
+                </option>
               ))}
-            </div>
-          </CardContent>
-        </Card>
+            </select>
+          </div>
 
-        {/* Content Area */}
-        <div className="lg:col-span-3">
-          {activeTab === "profile" && (
-            <Card className="bg-slate-800/50 border-slate-700/50">
-              <CardHeader>
-                <CardTitle className="text-white">Profile Settings</CardTitle>
-                <CardDescription className="text-slate-400">
-                  Update your profile information
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Name
-                  </label>
-                  <input
-                    type="text"
-                    defaultValue={user?.name}
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    defaultValue={user?.email}
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Phone
-                  </label>
-                  <input
-                    type="tel"
-                    placeholder="Enter phone number"
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400"
-                  />
-                </div>
-                <Button className="bg-gradient-to-r from-cyan-400 to-purple-600 hover:from-cyan-500 hover:to-purple-700">
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Changes
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+          {/* Desktop Sidebar Tabs */}
+          <Card className="bg-slate-800/50 border-slate-700/50 lg:col-span-1 hidden lg:block">
+            <CardContent className="p-4">
+              <div className="space-y-2">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                      activeTab === tab.id
+                        ? "bg-gradient-to-r from-cyan-400/20 to-purple-600/20 text-white border border-cyan-400/30"
+                        : "text-slate-400 hover:text-white hover:bg-slate-700/30"
+                    }`}
+                  >
+                    <tab.icon className="w-5 h-5" />
+                    <span className="font-medium">{tab.label}</span>
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
-          {activeTab === "notifications" && (
-            <Card className="bg-slate-800/50 border-slate-700/50">
-              <CardHeader>
-                <CardTitle className="text-white">
-                  Notification Settings
-                </CardTitle>
-                <CardDescription className="text-slate-400">
-                  Manage your notification preferences
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg">
-                  <div>
-                    <p className="text-white font-medium">
-                      Email Notifications
-                    </p>
-                    <p className="text-slate-400 text-sm">
-                      Receive email updates about bookings
-                    </p>
+          {/* Content Area */}
+          <div className="lg:col-span-3">
+            {/* Profile Tab */}
+            {activeTab === "profile" && (
+              <Card className="bg-slate-800/50 border-slate-700/50">
+                <CardHeader>
+                  <CardTitle className="text-white text-lg sm:text-xl">
+                    Profile Settings
+                  </CardTitle>
+                  <CardDescription className="text-slate-400 text-sm sm:text-base">
+                    Update your personal information
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form
+                    onSubmit={handleProfileUpdate}
+                    className="space-y-4 sm:space-y-6"
+                  >
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor="name"
+                          className="text-slate-300 text-sm"
+                        >
+                          Name
+                        </Label>
+                        <Input
+                          id="name"
+                          type="text"
+                          value={profileData.name}
+                          onChange={(e) =>
+                            setProfileData({
+                              ...profileData,
+                              name: e.target.value,
+                            })
+                          }
+                          className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-cyan-400"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label
+                          htmlFor="email"
+                          className="text-slate-300 text-sm"
+                        >
+                          Email
+                        </Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={profileData.email}
+                          onChange={(e) =>
+                            setProfileData({
+                              ...profileData,
+                              email: e.target.value,
+                            })
+                          }
+                          className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-cyan-400"
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone" className="text-slate-300 text-sm">
+                        Phone
+                      </Label>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        value={profileData.phone}
+                        onChange={(e) =>
+                          setProfileData({
+                            ...profileData,
+                            phone: e.target.value,
+                          })
+                        }
+                        className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-cyan-400"
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      disabled={saving}
+                      className="bg-gradient-to-r from-cyan-400 to-purple-600 hover:from-cyan-500 hover:to-purple-700 w-full sm:w-auto"
+                    >
+                      <Save className="w-4 h-4 mr-2" />
+                      {saving ? "Saving..." : "Save Changes"}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Security Tab */}
+            {activeTab === "security" && (
+              <Card className="bg-slate-800/50 border-slate-700/50">
+                <CardHeader>
+                  <CardTitle className="text-white text-lg sm:text-xl">
+                    Security Settings
+                  </CardTitle>
+                  <CardDescription className="text-slate-400 text-sm sm:text-base">
+                    Manage your account security
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Password Update Form */}
+                  <form onSubmit={handlePasswordUpdate} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="currentPassword"
+                        className="text-slate-300 text-sm"
+                      >
+                        Current Password
+                      </Label>
+                      <Input
+                        id="currentPassword"
+                        type="password"
+                        value={securityData.currentPassword}
+                        onChange={(e) =>
+                          setSecurityData({
+                            ...securityData,
+                            currentPassword: e.target.value,
+                          })
+                        }
+                        placeholder="Enter current password"
+                        className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-cyan-400"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="newPassword"
+                        className="text-slate-300 text-sm"
+                      >
+                        New Password
+                      </Label>
+                      <Input
+                        id="newPassword"
+                        type="password"
+                        value={securityData.newPassword}
+                        onChange={(e) =>
+                          setSecurityData({
+                            ...securityData,
+                            newPassword: e.target.value,
+                          })
+                        }
+                        placeholder="Enter new password"
+                        className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-cyan-400"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="confirmPassword"
+                        className="text-slate-300 text-sm"
+                      >
+                        Confirm New Password
+                      </Label>
+                      <Input
+                        id="confirmPassword"
+                        type="password"
+                        value={securityData.confirmPassword}
+                        onChange={(e) =>
+                          setSecurityData({
+                            ...securityData,
+                            confirmPassword: e.target.value,
+                          })
+                        }
+                        placeholder="Confirm new password"
+                        className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-cyan-400"
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      disabled={saving}
+                      className="bg-gradient-to-r from-cyan-400 to-purple-600 hover:from-cyan-500 hover:to-purple-700 w-full sm:w-auto"
+                    >
+                      <Save className="w-4 h-4 mr-2" />
+                      {saving ? "Updating..." : "Update Password"}
+                    </Button>
+                  </form>
+
+                  {/* Account Deletion Section */}
+                  <div className="border-t border-slate-600/50 pt-6">
+                    <div className="space-y-3">
+                      <h3 className="text-red-400 font-semibold text-lg">
+                        Danger Zone
+                      </h3>
+                      <p className="text-slate-400 text-sm">
+                        Once you delete your account, there is no going back.
+                        Please be certain.
+                      </p>
+                      <Button
+                        onClick={() => setDeleteDialogOpen(true)}
+                        variant="outline"
+                        className="border-red-500/50 text-red-400 hover:bg-red-500/10 w-full sm:w-auto"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete Account
+                      </Button>
+                    </div>
                   </div>
-                  <input type="checkbox" className="w-5 h-5" />
-                </div>
-                <div className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg">
-                  <div>
-                    <p className="text-white font-medium">Booking Alerts</p>
-                    <p className="text-slate-400 text-sm">
-                      Get notified when new bookings are made
-                    </p>
-                  </div>
-                  <input type="checkbox" className="w-5 h-5" defaultChecked />
-                </div>
-                <div className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg">
-                  <div>
-                    <p className="text-white font-medium">
-                      Payment Notifications
-                    </p>
-                    <p className="text-slate-400 text-sm">
-                      Receive alerts for payment transactions
-                    </p>
-                  </div>
-                  <input type="checkbox" className="w-5 h-5" defaultChecked />
-                </div>
-                <Button className="bg-gradient-to-r from-cyan-400 to-purple-600 hover:from-cyan-500 hover:to-purple-700">
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Preferences
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          {activeTab === "security" && (
-            <Card className="bg-slate-800/50 border-slate-700/50">
-              <CardHeader>
-                <CardTitle className="text-white">Security Settings</CardTitle>
-                <CardDescription className="text-slate-400">
-                  Manage your account security
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Current Password
-                  </label>
-                  <input
-                    type="password"
-                    placeholder="Enter current password"
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    New Password
-                  </label>
-                  <input
-                    type="password"
-                    placeholder="Enter new password"
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Confirm New Password
-                  </label>
-                  <input
-                    type="password"
-                    placeholder="Confirm new password"
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400"
-                  />
-                </div>
-                <Button className="bg-gradient-to-r from-cyan-400 to-purple-600 hover:from-cyan-500 hover:to-purple-700">
-                  <Save className="w-4 h-4 mr-2" />
-                  Update Password
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          {activeTab === "general" && (
-            <Card className="bg-slate-800/50 border-slate-700/50">
-              <CardHeader>
-                <CardTitle className="text-white">General Settings</CardTitle>
-                <CardDescription className="text-slate-400">
-                  Configure general application settings
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Company Name
-                  </label>
-                  <input
-                    type="text"
-                    defaultValue="Kuja Twende Adventures"
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Contact Email
-                  </label>
-                  <input
-                    type="email"
-                    placeholder="contact@kujatwende.com"
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Timezone
-                  </label>
-                  <select className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-cyan-400">
-                    <option>East Africa Time (EAT)</option>
-                    <option>UTC</option>
-                    <option>GMT</option>
-                  </select>
-                </div>
-                <Button className="bg-gradient-to-r from-cyan-400 to-purple-600 hover:from-cyan-500 hover:to-purple-700">
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Settings
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Delete Account Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-red-400 text-lg sm:text-xl">
+              Delete Account
+            </DialogTitle>
+            <DialogDescription className="text-slate-400 text-sm sm:text-base">
+              This action cannot be undone. This will permanently delete your
+              account and remove all your data from our servers.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertCircle className="w-4 h-4 text-red-400" />
+                <p className="text-red-400 font-medium text-sm">Warning</p>
+              </div>
+              <p className="text-white/80 text-xs">
+                You will lose access to all your bookings and account data.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="deleteConfirm" className="text-slate-300 text-sm">
+                Type your email to confirm:{" "}
+                <span className="font-medium">{user.email}</span>
+              </Label>
+              <Input
+                id="deleteConfirm"
+                type="text"
+                value={deleteConfirm}
+                onChange={(e) => setDeleteConfirm(e.target.value)}
+                placeholder="Enter your email"
+                className="bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-red-400"
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
+            <Button
+              onClick={() => setDeleteDialogOpen(false)}
+              variant="outline"
+              className="border-slate-600 text-white hover:bg-slate-700/50 w-full sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteAccount}
+              disabled={saving || deleteConfirm !== user.email}
+              variant="destructive"
+              className="bg-red-600 hover:bg-red-700 w-full sm:w-auto"
+            >
+              {saving ? "Deleting..." : "Delete Account"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

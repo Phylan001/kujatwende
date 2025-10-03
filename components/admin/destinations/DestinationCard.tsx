@@ -15,7 +15,7 @@ export default function DestinationCard({
   destination,
   onView,
   onEdit,
-  onDelete
+  onDelete,
 }: DestinationCardProps) {
   return (
     <Card className="bg-slate-700/30 border-slate-600/50 overflow-hidden hover:border-cyan-400/50 transition-colors">

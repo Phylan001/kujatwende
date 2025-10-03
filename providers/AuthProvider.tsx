@@ -21,6 +21,8 @@ interface AuthContextType {
   ) => Promise<{ success: boolean; user?: UserSession }>;
   logout: () => void;
   loading: boolean;
+  updateUser: (userData: Partial<UserSession>) => void; // New function to update user data
+  refreshUser: () => Promise<void>; // New function to refresh user data from server
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,10 +37,52 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
  * - Role-based authentication (user/admin)
  * - Secure token storage in localStorage
  * - Login/Register/Logout functionality
+ * - User profile updates and refresh
  */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserSession | null>(null);
   const [loading, setLoading] = useState(true);
+
+  /**
+   * Function to update user data in context
+   * Useful for profile updates without full refresh
+   */
+  const updateUser = (userData: Partial<UserSession>) => {
+    setUser((prev) => (prev ? { ...prev, ...userData } : null));
+  };
+
+  /**
+   * Function to refresh user data from server
+   * Fetches complete user profile including phone number
+   */
+  const refreshUser = async (): Promise<void> => {
+    const token = localStorage.getItem("auth-token");
+
+    if (!token) {
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/admin/users/me", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        setUser({
+          id: userData._id?.toString() || userData.id,
+          email: userData.email,
+          name: userData.name,
+          role: userData.role,
+          phone: userData.phone || "",
+        });
+      }
+    } catch (error) {
+      console.error("Error refreshing user data:", error);
+    }
+  };
 
   /**
    * Effect: Verify existing auth token on component mount
@@ -65,7 +109,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (response.ok) {
           const data = await response.json();
           if (data.user) {
+            // Set basic user data from verify endpoint
             setUser(data.user);
+
+            // Refresh complete user data including phone number
+            await refreshUser();
           } else {
             // Invalid response format, clear token
             localStorage.removeItem("auth-token");
@@ -116,8 +164,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Store authentication token
         localStorage.setItem("auth-token", data.token);
 
-        // Update user state
+        // Update user state with basic data
         setUser(data.user);
+
+        // Refresh complete user data including phone number
+        await refreshUser();
 
         // Return success with user data for role-based routing
         return {
@@ -169,8 +220,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Store authentication token
         localStorage.setItem("auth-token", data.token);
 
-        // Update user state
+        // Update user state with basic data
         setUser(data.user);
+
+        // Refresh complete user data including phone number
+        await refreshUser();
 
         // Return success with user data
         return {
@@ -198,7 +252,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        register,
+        logout,
+        loading,
+        updateUser, // New function
+        refreshUser, // New function
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -212,7 +276,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  * @returns Authentication context with user state and auth methods
  *
  * Usage:
- * const { user, login, logout, loading } = useAuth()
+ * const { user, login, logout, loading, updateUser, refreshUser } = useAuth()
  */
 export function useAuth() {
   const context = useContext(AuthContext);

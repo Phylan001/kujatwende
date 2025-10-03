@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
+import DeleteDialog from "@/components/ui/delete-dialog";
 import { AlertCircle, Plus } from "lucide-react";
 import Header from "@/components/admin/destinations/Header";
 import SummaryCards from "@/components/admin/destinations/SummaryCards";
@@ -23,7 +24,7 @@ import {
   FormData as DestinationFormData,
 } from "@/components/admin/destinations/types";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/components/providers/AuthProvider";
+import { useAuth } from "@/providers/AuthProvider";
 import { useRouter } from "next/navigation";
 
 export default function DestinationsPage() {
@@ -40,6 +41,12 @@ export default function DestinationsPage() {
   const [selectedDestination, setSelectedDestination] =
     useState<Destination | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [destinationToDelete, setDestinationToDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -332,21 +339,24 @@ export default function DestinationsPage() {
     }
   };
 
-  const handleDeleteDestination = async (id: string) => {
-    if (
-      !confirm(
-        "Are you sure you want to delete this destination? This will also delete all associated images."
-      )
-    )
-      return;
+  const handleDeleteClick = (id: string, name: string) => {
+    setDestinationToDelete({ id, name });
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!destinationToDelete) return;
 
     try {
-      const response = await fetch(`/api/admin/destinations/${id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth-token")}`,
-        },
-      });
+      const response = await fetch(
+        `/api/admin/destinations/${destinationToDelete.id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("auth-token")}`,
+          },
+        }
+      );
 
       const data = await response.json();
 
@@ -370,6 +380,10 @@ export default function DestinationsPage() {
         description: "Failed to delete destination",
         variant: "destructive",
       });
+    } finally {
+      setDeleteDialogOpen(false);
+      setDeleteConfirm("");
+      setDestinationToDelete(null);
     }
   };
 
@@ -537,7 +551,7 @@ export default function DestinationsPage() {
                   setIsViewDialogOpen(true);
                 }}
                 onEdit={openEditDialog}
-                onDelete={handleDeleteDestination}
+                onDelete={(id) => handleDeleteClick(id, dest.name)}
               />
             ))}
           </div>
@@ -545,6 +559,19 @@ export default function DestinationsPage() {
           {filteredDestinations.length === 0 && <EmptyState />}
         </CardContent>
       </Card>
+
+      <DeleteDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleConfirmDelete}
+        title="Delete Destination"
+        description="This action cannot be undone. This will permanently delete the destination and remove all associated data."
+        confirmText={destinationToDelete?.name || ""}
+        itemName="this destination"
+        confirmInput={deleteConfirm}
+        onConfirmInputChange={setDeleteConfirm}
+        isDeleting={false}
+      />
 
       <DestinationForm
         isOpen={isEditDialogOpen}
