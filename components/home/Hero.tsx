@@ -5,39 +5,117 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Search, MapPin } from "lucide-react";
 
-const heroImages = [
+// Fallback images stored locally
+const FALLBACK_IMAGES = [
   "/samburu-national-reserve-kenya-wildlife.jpg",
   "/lake-nakuru-flamingos-kenya.jpg",
-  "/diani-beach-coastal-paradise.jpg",
-  "/amboseli-elephants-kilimanjaro.jpg",
 ];
 
+interface HeroImage {
+  url: string;
+  caption?: string;
+  type: "destination" | "package";
+}
+
 export function Hero() {
+  const [heroImages, setHeroImages] = useState<string[]>(FALLBACK_IMAGES);
   const [currentImage, setCurrentImage] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentImage((prev) => (prev + 1) % heroImages.length);
-    }, 10000);
-    return () => clearInterval(interval);
+    // Fetch images from database
+    const fetchHeroImages = async () => {
+      try {
+        const images: string[] = [];
+
+        // Fetch featured destinations
+        const destResponse = await fetch(
+          "/api/destinations?featured=true&limit=3"
+        );
+        const destData = await destResponse.json();
+
+        if (destData.success && destData.destinations) {
+          destData.destinations.forEach((dest: any) => {
+            // Add banner image if exists
+            if (dest.bannerImage?.url) {
+              images.push(dest.bannerImage.url);
+            }
+            // Add gallery images if exist
+            if (dest.gallery && dest.gallery.length > 0) {
+              dest.gallery.forEach((img: any) => {
+                if (img.url) images.push(img.url);
+              });
+            }
+          });
+        }
+
+        // Fetch featured packages
+        const pkgResponse = await fetch("/api/packages?featured=true&limit=3");
+        const pkgData = await pkgResponse.json();
+
+        if (pkgData.success && pkgData.packages) {
+          pkgData.packages.forEach((pkg: any) => {
+            // Add package image if exists
+            if (pkg.image?.url) {
+              images.push(pkg.image.url);
+            }
+          });
+        }
+
+        // Shuffle images for variety
+        const shuffledImages = images.sort(() => Math.random() - 0.5);
+
+        // If we have images from DB, use them; otherwise use fallbacks
+        if (shuffledImages.length > 0) {
+          // Combine DB images with fallbacks for more variety
+          setHeroImages([...shuffledImages, ...FALLBACK_IMAGES]);
+        } else {
+          setHeroImages(FALLBACK_IMAGES);
+        }
+      } catch (error) {
+        console.error("Error fetching hero images:", error);
+        // Keep using fallback images on error
+        setHeroImages(FALLBACK_IMAGES);
+      }
+    };
+
+    fetchHeroImages();
   }, []);
+
+  useEffect(() => {
+    // Smooth image transition with realistic timing
+    const interval = setInterval(() => {
+      setIsTransitioning(true);
+
+      // Brief transition period
+      setTimeout(() => {
+        setCurrentImage((prev) => (prev + 1) % heroImages.length);
+        setIsTransitioning(false);
+      }, 500);
+    }, 8000); // 8 seconds per image - realistic and engaging
+
+    return () => clearInterval(interval);
+  }, [heroImages.length]);
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-26 md:pt-16 pb-24 md:pb-5">
-      {/* Background Images with Parallax Effect */}
+      {/* Background Images with Smooth Parallax Effect */}
       <div className="absolute inset-0">
         {heroImages.map((image, index) => (
           <div
-            key={index}
-            className={`absolute inset-0 transition-opacity duration-1000 ${
-              index === currentImage ? "opacity-100" : "opacity-0"
+            key={`${image}-${index}`}
+            className={`absolute inset-0 transition-all duration-1000 ease-in-out ${
+              index === currentImage && !isTransitioning
+                ? "opacity-100 scale-100"
+                : "opacity-0 scale-105"
             }`}
           >
             <img
-              src={image || "/placeholder.svg"}
+              src={image}
               alt={`Kenya Adventure ${index + 1}`}
               className="w-full h-full object-cover"
+              loading={index === 0 ? "eager" : "lazy"}
             />
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent" />
           </div>
@@ -45,7 +123,7 @@ export function Hero() {
       </div>
 
       {/* Floating Particles Effect */}
-      <div className="absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {[...Array(20)].map((_, i) => (
           <div
             key={i}
@@ -75,7 +153,7 @@ export function Hero() {
           {/* Search Bar */}
           <div className="glass rounded-2xl p-6 mb-8 max-w-2xl mx-auto neon-border">
             <div className="flex flex-col md:flex-row gap-4 items-center">
-              <div className="flex-1 relative">
+              <div className="flex-1 relative w-full">
                 <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cyan-400 w-5 h-5" />
                 <input
                   type="text"
@@ -98,20 +176,36 @@ export function Hero() {
 
           {/* Quick Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto">
-            <div className="glass rounded-xl p-4 text-center">
+            <div className="glass rounded-xl p-4 text-center hover:scale-105 transition-transform duration-300">
               <div className="text-2xl font-bold text-cyan-400 mb-1">50+</div>
               <div className="text-white/80 text-sm">Destinations</div>
             </div>
-            <div className="glass rounded-xl p-4 text-center">
+            <div className="glass rounded-xl p-4 text-center hover:scale-105 transition-transform duration-300">
               <div className="text-2xl font-bold text-purple-400 mb-1">
                 1000+
               </div>
               <div className="text-white/80 text-sm">Happy Travelers</div>
             </div>
-            <div className="glass rounded-xl p-4 text-center">
+            <div className="glass rounded-xl p-4 text-center hover:scale-105 transition-transform duration-300">
               <div className="text-2xl font-bold text-orange-400 mb-1">5★</div>
               <div className="text-white/80 text-sm">Average Rating</div>
             </div>
+          </div>
+
+          {/* Image Progress Indicators */}
+          <div className="flex justify-center gap-2 mt-8">
+            {heroImages.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => setCurrentImage(index)}
+                className={`h-1 rounded-full transition-all duration-300 ${
+                  index === currentImage
+                    ? "w-8 bg-cyan-400"
+                    : "w-4 bg-white/30 hover:bg-white/50"
+                }`}
+                aria-label={`View image ${index + 1}`}
+              />
+            ))}
           </div>
         </div>
       </div>
