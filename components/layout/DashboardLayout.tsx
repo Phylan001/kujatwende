@@ -54,7 +54,7 @@ export function UserDashboardLayout({ children }: DashboardLayoutProps) {
                 className="w-7 h-7"
               />
             </div>
-            <h2 className="text-white font-bold text-sm">User Dashboard</h2>
+            <h2 className="text-white font-bold text-sm">User Panel</h2>
           </div>
           <Button
             variant="ghost"
@@ -100,7 +100,7 @@ export function UserDashboardLayout({ children }: DashboardLayoutProps) {
             />
           </div>
           <div>
-            <h2 className="text-white font-bold text-lg">User Dashboard</h2>
+            <h2 className="text-white font-bold text-lg">User Panel</h2>
             <p className="text-orange-300 text-xs">Kuja Twende Adventures</p>
           </div>
         </div>
@@ -118,7 +118,7 @@ export function UserDashboardLayout({ children }: DashboardLayoutProps) {
               />
             </div>
             <div>
-              <h2 className="text-white font-bold">User Dashboard</h2>
+              <h2 className="text-white font-bold">User Panel</h2>
               <p className="text-orange-300 text-xs">Kuja Twende Adventures</p>
             </div>
           </div>
