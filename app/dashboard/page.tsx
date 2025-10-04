@@ -154,10 +154,12 @@ export default function DashboardPage() {
    */
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-orange-400 mx-auto"></div>
-          <p className="text-white/70 mt-4">Verifying credentials...</p>
+          <div className="animate-spin rounded-full h-20 w-20 sm:h-32 sm:w-32 border-b-2 border-cyan-400 mx-auto"></div>
+          <p className="text-white/70 mt-4 text-sm sm:text-base">
+            Verifying credentials...
+          </p>
         </div>
       </div>
     );
