@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, ReactNode } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Calendar,
@@ -11,6 +11,8 @@ import {
   X,
   Eye,
   ExternalLink,
+  Clock,
+  AlertCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
@@ -23,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useSearchParams } from "next/navigation";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface TravelPackage {
   _id: string;
@@ -64,6 +67,167 @@ interface TravelPackage {
   updatedAt: string;
 }
 
+/**
+ * PackageBookingButton Component
+ * ================================
+ * Intelligent button that adapts based on package status and availability
+ *
+ * Status Logic:
+ * - active: Trip is currently running → "Book Now"
+ * - upcoming: Trip starts in future → "Book Now" or "Pre-Book"
+ * - soldout: No seats available → Disabled "Sold Out"
+ * - inactive: Trip ended → Disabled "Trip Ended"
+ */
+interface BookingButtonProps {
+  pkg: TravelPackage;
+  variant?: "full" | "compact";
+}
+
+const PackageBookingButton: React.FC<BookingButtonProps> = ({
+  pkg,
+  variant = "full",
+}) => {
+  /**
+   * Determine if package is bookable
+   * ================================
+   * Bookable when:
+   * 1. Status is "active" OR "upcoming"
+   * 2. Has available seats (availableSeats > 0)
+   * 3. Not sold out
+   */
+  const isBookable =
+    (pkg.status === "active" || pkg.status === "upcoming") &&
+    pkg.availableSeats > 0 &&
+    pkg.status !== "soldout";
+
+  /**
+   * Get button configuration based on status
+   * ========================================
+   */
+  const getButtonConfig = () => {
+    // Sold Out: No seats available
+    if (pkg.status === "soldout" || pkg.availableSeats === 0) {
+      return {
+        text: "Sold Out",
+        icon: AlertCircle,
+        disabled: true,
+        className:
+          "bg-red-500/20 text-red-400 cursor-not-allowed hover:bg-red-500/20",
+        tooltip: "This package is fully booked",
+      };
+    }
+
+    // Inactive: Trip has ended
+    if (pkg.status === "inactive") {
+      return {
+        text: "Trip Ended",
+        icon: Clock,
+        disabled: true,
+        className:
+          "bg-gray-500/20 text-gray-400 cursor-not-allowed hover:bg-gray-500/20",
+        tooltip: "This trip has already concluded",
+      };
+    }
+
+    // Upcoming: Future trip - Available for booking
+    if (pkg.status === "upcoming") {
+      const daysUntilStart = Math.ceil(
+        (new Date(pkg.startDate).getTime() - new Date().getTime()) /
+          (1000 * 60 * 60 * 24)
+      );
+
+      return {
+        text: daysUntilStart > 30 ? "Pre-Book Now" : "Book Now",
+        icon: ExternalLink,
+        disabled: false,
+        className:
+          "bg-gradient-to-r from-blue-400 to-cyan-600 hover:from-blue-500 hover:to-cyan-700",
+        tooltip: `Trip starts in ${daysUntilStart} days - ${pkg.availableSeats} seats available`,
+      };
+    }
+
+    // Active: Trip is currently running - Still accepting bookings
+    if (pkg.status === "active") {
+      return {
+        text: "Book Now",
+        icon: ExternalLink,
+        disabled: false,
+        className:
+          "bg-gradient-to-r from-cyan-400 to-purple-600 hover:from-cyan-500 hover:to-purple-700",
+        tooltip: `Trip in progress - ${pkg.availableSeats} seats still available`,
+      };
+    }
+
+    // Fallback
+    return {
+      text: "Unavailable",
+      icon: AlertCircle,
+      disabled: true,
+      className:
+        "bg-gray-500/20 text-gray-400 cursor-not-allowed hover:bg-gray-500/20",
+      tooltip: "This package is not available for booking",
+    };
+  };
+
+  const config = getButtonConfig();
+  const Icon = config.icon;
+
+  /**
+   * Handle booking click
+   * ====================
+   * Redirects to booking page with package ID
+   * Authentication is handled on the booking page
+   */
+  const handleBookingClick = () => {
+    if (!config.disabled) {
+      window.location.href = `/dashboard/booking?package=${pkg._id}`;
+    }
+  };
+
+  if (variant === "compact") {
+    return (
+      <Button
+        onClick={handleBookingClick}
+        disabled={config.disabled}
+        className={`flex-1 text-xs sm:text-sm h-9 sm:h-10 ${config.className}`}
+        title={config.tooltip}
+      >
+        <Icon className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+        {config.text}
+      </Button>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <Button
+        onClick={handleBookingClick}
+        disabled={config.disabled}
+        className={`w-full ${config.className}`}
+        title={config.tooltip}
+      >
+        <Icon className="w-4 h-4 mr-2" />
+        {config.text}
+      </Button>
+
+      {/* Show availability alert for low stock */}
+      {isBookable && pkg.availableSeats <= 3 && pkg.availableSeats > 0 && (
+        <Alert className="bg-orange-500/10 border-orange-500/30">
+          <AlertCircle className="h-4 w-4 text-orange-400" />
+          <AlertDescription className="text-xs text-orange-300">
+            Only {pkg.availableSeats}{" "}
+            {pkg.availableSeats === 1 ? "seat" : "seats"} left!
+          </AlertDescription>
+        </Alert>
+      )}
+    </div>
+  );
+};
+
+/**
+ * Main Packages Page Component
+ * =============================
+ */
 export default function PackagesPage() {
   const searchParams = useSearchParams();
   const destinationId = searchParams.get("destination");
@@ -81,6 +245,12 @@ export default function PackagesPage() {
     fetchPackages();
   }, [destinationId]);
 
+  /**
+   * Fetch Packages from API
+   * ========================
+   * Fetches packages with optional destination filter
+   * Now supports both "active" and "upcoming" status
+   */
   const fetchPackages = async (search = "") => {
     try {
       setLoading(true);
@@ -120,16 +290,14 @@ export default function PackagesPage() {
     setIsDetailModalOpen(true);
   };
 
-  const handleBookPackage = (pkg: TravelPackage) => {
-    // Redirect to booking page - authentication will be handled there
-    window.location.href = `/dashboard/booking?package=${pkg._id}`;
-  };
-
   const handleCloseModal = () => {
     setIsDetailModalOpen(false);
     setSelectedPackage(null);
   };
 
+  /**
+   * Format price with KES currency
+   */
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("en-KE", {
       style: "currency",
@@ -138,6 +306,9 @@ export default function PackagesPage() {
     }).format(price);
   };
 
+  /**
+   * Format date for display
+   */
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-KE", {
       year: "numeric",
@@ -146,6 +317,9 @@ export default function PackagesPage() {
     });
   };
 
+  /**
+   * Get status badge styling
+   */
   const getStatusColor = (status: string) => {
     switch (status) {
       case "active":
@@ -161,6 +335,9 @@ export default function PackagesPage() {
     }
   };
 
+  /**
+   * Get difficulty badge styling
+   */
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
       case "easy":
@@ -174,11 +351,32 @@ export default function PackagesPage() {
     }
   };
 
+  /**
+   * Get status display text
+   */
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case "active":
+        return "Active Now";
+      case "upcoming":
+        return "Upcoming";
+      case "soldout":
+        return "Sold Out";
+      case "inactive":
+        return "Ended";
+      default:
+        return status.charAt(0).toUpperCase() + status.slice(1);
+    }
+  };
+
+  // ============================================
+  // LOADING STATE
+  // ============================================
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 sm:h-20 border-b-2 border-cyan-400 mx-auto"></div>
+          <div className="animate-spin rounded-full h-20 w-20 sm:h-32 sm:w-32 border-b-2 border-cyan-400 mx-auto"></div>
           <p className="text-white/70 mt-4 text-sm sm:text-base">
             Loading packages...
           </p>
@@ -187,6 +385,9 @@ export default function PackagesPage() {
     );
   }
 
+  // ============================================
+  // ERROR STATE
+  // ============================================
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
@@ -253,6 +454,9 @@ export default function PackagesPage() {
       <section className="py-8 sm:py-12 pb-16 sm:pb-20">
         <div className="container mx-auto px-4">
           {packages.length === 0 ? (
+            // ============================================
+            // EMPTY STATE
+            // ============================================
             <div className="text-center py-12 sm:py-16">
               <Calendar className="w-12 h-12 sm:w-16 sm:h-16 text-slate-600 mx-auto mb-4" />
               <p className="text-white/70 text-base sm:text-lg mb-2">
@@ -280,41 +484,52 @@ export default function PackagesPage() {
               )}
             </div>
           ) : (
+            // ============================================
+            // PACKAGES GRID
+            // ============================================
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
               {packages.map((pkg) => (
                 <div
                   key={pkg._id}
                   className="glass rounded-xl sm:rounded-2xl overflow-hidden group hover:scale-[1.02] transition-transform duration-300"
                 >
+                  {/* Package Image */}
                   <div className="relative h-48 sm:h-56 md:h-64 overflow-hidden">
                     <img
                       src={pkg.image?.url || "/placeholder.svg"}
                       alt={pkg.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
+
+                    {/* Rating Badge */}
                     <div className="absolute top-2 sm:top-3 right-2 sm:right-3 glass rounded-full px-2 sm:px-3 py-1 flex items-center gap-1">
                       <Star className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-400 fill-current" />
                       <span className="text-white text-xs sm:text-sm">
                         {pkg.averageRating.toFixed(1)}
                       </span>
                     </div>
+
+                    {/* Featured Badge */}
                     {pkg.featured && (
                       <div className="absolute top-2 sm:top-3 left-2 sm:left-3 bg-yellow-500 text-black text-xs px-2 py-1 rounded-full font-semibold">
                         Featured
                       </div>
                     )}
+
+                    {/* Status Badge */}
                     <div className="absolute bottom-2 sm:bottom-3 left-2 sm:left-3">
                       <Badge className={getStatusColor(pkg.status)}>
-                        {pkg.status.charAt(0).toUpperCase() +
-                          pkg.status.slice(1)}
+                        {getStatusText(pkg.status)}
                       </Badge>
                     </div>
                   </div>
 
+                  {/* Package Content */}
                   <div className="p-4 sm:p-6">
                     <h3 className="text-lg sm:text-xl font-bold text-white mb-2 line-clamp-1">
                       {pkg.name}
                     </h3>
+
                     <div className="flex items-center gap-2 mb-2">
                       <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400" />
                       <span className="text-slate-400 text-xs sm:text-sm">
@@ -326,6 +541,7 @@ export default function PackagesPage() {
                       {pkg.description}
                     </p>
 
+                    {/* Package Meta Info */}
                     <div className="flex items-center justify-between mb-3 sm:mb-4 text-xs sm:text-sm text-white/60">
                       <div className="flex items-center gap-1">
                         <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -340,6 +556,7 @@ export default function PackagesPage() {
                       </div>
                     </div>
 
+                    {/* Badges: Difficulty, Category, Highlights */}
                     <div className="flex flex-wrap gap-1 sm:gap-2 mb-4">
                       <Badge className={getDifficultyColor(pkg.difficulty)}>
                         {pkg.difficulty}
@@ -362,7 +579,7 @@ export default function PackagesPage() {
                       )}
                     </div>
 
-                    {/* Dual Buttons */}
+                    {/* Action Buttons */}
                     <div className="flex flex-col sm:flex-row gap-2">
                       <Button
                         onClick={() => handleViewDetails(pkg)}
@@ -372,14 +589,9 @@ export default function PackagesPage() {
                         <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                         View Details
                       </Button>
-                      <Button
-                        onClick={() => handleBookPackage(pkg)}
-                        className="flex-1 bg-gradient-to-r from-cyan-400 to-purple-600 hover:from-cyan-500 hover:to-purple-700 text-xs sm:text-sm h-9 sm:h-10"
-                        disabled={pkg.status !== "active"}
-                      >
-                        <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                        Book Package
-                      </Button>
+
+                      {/* UPDATED: Dynamic Booking Button */}
+                      <PackageBookingButton pkg={pkg} variant="compact" />
                     </div>
                   </div>
                 </div>
@@ -426,8 +638,7 @@ export default function PackagesPage() {
                   </span>
                 </div>
                 <Badge className={getStatusColor(selectedPackage.status)}>
-                  {selectedPackage.status.charAt(0).toUpperCase() +
-                    selectedPackage.status.slice(1)}
+                  {getStatusText(selectedPackage.status)}
                 </Badge>
                 <Badge
                   className={getDifficultyColor(selectedPackage.difficulty)}
@@ -451,7 +662,7 @@ export default function PackagesPage() {
                 </p>
               </div>
 
-              {/* Package Details */}
+              {/* Package Details Grid */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <h4 className="text-white font-semibold mb-2 text-sm sm:text-base">
@@ -554,26 +765,28 @@ export default function PackagesPage() {
                 </div>
               )}
 
-              {/* Action Button */}
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-slate-700/30 rounded-lg">
-                <div className="text-center sm:text-left">
-                  <span className="text-slate-300 text-sm sm:text-base">
-                    Total Price
-                  </span>
-                  <div className="text-cyan-400 font-bold text-xl sm:text-2xl">
-                    {selectedPackage.isFree
-                      ? "Free"
-                      : formatPrice(selectedPackage.price)}
+              {/* Action Section with Dynamic Button */}
+              <div className="p-4 bg-slate-700/30 rounded-lg">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="text-center sm:text-left">
+                    <span className="text-slate-300 text-sm sm:text-base">
+                      Total Price
+                    </span>
+                    <div className="text-cyan-400 font-bold text-xl sm:text-2xl">
+                      {selectedPackage.isFree
+                        ? "Free"
+                        : formatPrice(selectedPackage.price)}
+                    </div>
+                  </div>
+
+                  {/* UPDATED: Full-width Dynamic Booking Button */}
+                  <div className="w-full sm:w-auto">
+                    <PackageBookingButton
+                      pkg={selectedPackage}
+                      variant="full"
+                    />
                   </div>
                 </div>
-                <Button
-                  onClick={() => handleBookPackage(selectedPackage)}
-                  className="w-full sm:w-auto bg-gradient-to-r from-cyan-400 to-purple-600 hover:from-cyan-500 hover:to-purple-700"
-                  disabled={selectedPackage.status !== "active"}
-                >
-                  <ExternalLink className="w-4 h-4 mr-2" />
-                  Book This Package
-                </Button>
               </div>
             </div>
           )}
