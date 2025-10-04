@@ -1,13 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -17,10 +11,12 @@ import {
   Star,
   Image as ImageIcon,
   Calendar,
+  Eye,
 } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
+import DestinationDetailsModal from "@/components/user/destinations/DestinationDetailsModal";
 
 interface Destination {
   _id: string;
@@ -39,6 +35,10 @@ interface Destination {
   highlights: string[];
   activities: string[];
   bestTimeToVisit: string;
+  gallery: Array<{
+    url: string;
+    caption?: string;
+  }>;
 }
 
 export default function DestinationsPage() {
@@ -48,6 +48,9 @@ export default function DestinationsPage() {
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [selectedDestination, setSelectedDestination] =
+    useState<Destination | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -78,7 +81,91 @@ export default function DestinationsPage() {
   };
 
   const handleViewPackages = (destinationId: string) => {
-    router.push(`/packages?destination=${destinationId}`);
+    router.push(`/dashboard/packages?destination=${destinationId}`);
+  };
+
+  const handleViewDetails = (destination: Destination) => {
+    setSelectedDestination(destination);
+    setIsDetailsModalOpen(true);
+  };
+
+  const handleReviewSubmit = async (reviewData: {
+    rating: number;
+    comment: string;
+    title: string;
+  }) => {
+    if (!selectedDestination) {
+      toast({
+        title: "Error",
+        description: "No destination selected",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Ensure user is authenticated and has an ID
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to submit a review",
+        variant: "destructive",
+      });
+      router.push("/auth/login");
+      return;
+    }
+
+    // Extract user ID - handle different possible user object structures
+    const userId = (user as any)?._id || (user as any)?.id;
+
+    if (!userId) {
+      toast({
+        title: "Error",
+        description: "Unable to identify user. Please try logging in again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/user/reviews", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          destinationId: selectedDestination._id,
+          userId: userId,
+          rating: reviewData.rating,
+          title: reviewData.title,
+          comment: reviewData.comment,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: data.message || "Review submitted successfully!",
+        });
+        setIsDetailsModalOpen(false);
+        // Refresh destinations to update ratings
+        await fetchDestinations();
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to submit review",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error submitting review:", error);
+      toast({
+        title: "Error",
+        description: "Failed to submit review. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const filteredDestinations = destinations.filter(
@@ -187,7 +274,7 @@ export default function DestinationsPage() {
                 </div>
 
                 {/* Highlights */}
-                {destination.highlights.length > 0 && (
+                {destination.highlights?.length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {destination.highlights
                       .slice(0, 3)
@@ -202,12 +289,22 @@ export default function DestinationsPage() {
                   </div>
                 )}
 
-                <Button
-                  onClick={() => handleViewPackages(destination._id)}
-                  className="w-full btn-adventure"
-                >
-                  View Packages
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => handleViewDetails(destination)}
+                    variant="outline"
+                    className="flex-1 border-orange-500/50 text-orange-400 hover:bg-orange-500/10"
+                  >
+                    <Eye className="w-4 h-4 mr-1" />
+                    Details
+                  </Button>
+                  <Button
+                    onClick={() => handleViewPackages(destination._id)}
+                    className="flex-1 btn-adventure"
+                  >
+                    View Packages
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -225,6 +322,13 @@ export default function DestinationsPage() {
           </CardContent>
         </Card>
       )}
+
+      <DestinationDetailsModal
+        isOpen={isDetailsModalOpen}
+        onClose={() => setIsDetailsModalOpen(false)}
+        destination={selectedDestination}
+        onReviewSubmit={handleReviewSubmit}
+      />
     </div>
   );
 }
