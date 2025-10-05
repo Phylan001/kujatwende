@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { CreditCard, DollarSign, Calendar, User } from "lucide-react";
+import { CreditCard, DollarSign } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
 import { useToast } from "@/hooks/use-toast";
 
@@ -113,7 +113,7 @@ export default function PaymentModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md">
+      <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl">Make Payment</DialogTitle>
           <DialogDescription className="text-slate-400">
@@ -123,12 +123,12 @@ export default function PaymentModal({
 
         <div className="space-y-4">
           {/* Payment Summary */}
-          <div className="bg-slate-700/30 rounded-lg p-4">
-            <h4 className="text-white font-semibold mb-2">Payment Summary</h4>
-            <div className="space-y-2 text-sm">
+          <div className="bg-slate-700/30 rounded-lg p-3">
+            <h4 className="text-white font-semibold mb-2 text-sm">Payment Summary</h4>
+            <div className="space-y-1.5 text-xs">
               <div className="flex justify-between">
                 <span className="text-slate-400">Package:</span>
-                <span className="text-white">{booking.packageId.name}</span>
+                <span className="text-white font-medium text-right">{booking.packageId.name}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Amount:</span>
@@ -140,8 +140,8 @@ export default function PaymentModal({
           </div>
 
           {/* Payment Method */}
-          <div className="space-y-3">
-            <Label>Payment Method</Label>
+          <div className="space-y-2">
+            <Label className="text-sm">Payment Method</Label>
             <RadioGroup
               value={paymentMethod}
               onValueChange={(value: "mpesa" | "card") => setPaymentMethod(value)}
@@ -149,14 +149,14 @@ export default function PaymentModal({
             >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="mpesa" id="mpesa" />
-                <Label htmlFor="mpesa" className="flex items-center gap-2">
+                <Label htmlFor="mpesa" className="flex items-center gap-2 text-sm cursor-pointer">
                   <CreditCard className="w-4 h-4" />
                   M-Pesa
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="card" id="card" />
-                <Label htmlFor="card" className="flex items-center gap-2">
+                <Label htmlFor="card" className="flex items-center gap-2 text-sm cursor-pointer">
                   <CreditCard className="w-4 h-4" />
                   Credit/Debit Card
                 </Label>
@@ -166,51 +166,51 @@ export default function PaymentModal({
 
           {/* Card Details */}
           {paymentMethod === "card" && (
-            <div className="space-y-3 border border-slate-600 rounded-lg p-4">
-              <h4 className="text-white font-semibold">Card Details</h4>
+            <div className="space-y-3 border border-slate-600 rounded-lg p-3">
+              <h4 className="text-white font-semibold text-sm">Card Details</h4>
               
-              <div className="space-y-2">
-                <Label htmlFor="cardNumber">Card Number</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="cardNumber" className="text-xs">Card Number</Label>
                 <Input
                   id="cardNumber"
                   placeholder="1234 5678 9012 3456"
                   value={cardDetails.number}
                   onChange={(e) => handleCardDetailChange("number", e.target.value)}
-                  className="bg-slate-700/50 border-slate-600 text-white"
+                  className="bg-slate-700/50 border-slate-600 text-white text-sm h-9"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="expiry">Expiry Date</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="expiry" className="text-xs">Expiry Date</Label>
                   <Input
                     id="expiry"
                     placeholder="MM/YY"
                     value={cardDetails.expiry}
                     onChange={(e) => handleCardDetailChange("expiry", e.target.value)}
-                    className="bg-slate-700/50 border-slate-600 text-white"
+                    className="bg-slate-700/50 border-slate-600 text-white text-sm h-9"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="cvv">CVV</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="cvv" className="text-xs">CVV</Label>
                   <Input
                     id="cvv"
                     placeholder="123"
                     value={cardDetails.cvv}
                     onChange={(e) => handleCardDetailChange("cvv", e.target.value)}
-                    className="bg-slate-700/50 border-slate-600 text-white"
+                    className="bg-slate-700/50 border-slate-600 text-white text-sm h-9"
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="cardName">Cardholder Name</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="cardName" className="text-xs">Cardholder Name</Label>
                 <Input
                   id="cardName"
                   placeholder="John Doe"
                   value={cardDetails.name}
                   onChange={(e) => handleCardDetailChange("name", e.target.value)}
-                  className="bg-slate-700/50 border-slate-600 text-white"
+                  className="bg-slate-700/50 border-slate-600 text-white text-sm h-9"
                 />
               </div>
             </div>
@@ -218,11 +218,11 @@ export default function PaymentModal({
 
           {/* M-Pesa Instructions */}
           {paymentMethod === "mpesa" && (
-            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-              <h5 className="text-blue-400 font-semibold mb-2">
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+              <h5 className="text-blue-400 font-semibold mb-1.5 text-sm">
                 M-Pesa Payment Instructions
               </h5>
-              <ol className="text-blue-300 text-sm space-y-1 list-decimal list-inside">
+              <ol className="text-blue-300 text-xs space-y-0.5 list-decimal list-inside">
                 <li>Ensure you have sufficient funds in your M-Pesa account</li>
                 <li>You will receive a prompt on your phone</li>
                 <li>Enter your M-Pesa PIN to complete the payment</li>
@@ -235,7 +235,7 @@ export default function PaymentModal({
           <Button
             onClick={handleSubmit}
             disabled={isProcessing}
-            className="w-full btn-adventure"
+            className="w-full btn-adventure text-sm h-10"
           >
             {isProcessing ? (
               <>

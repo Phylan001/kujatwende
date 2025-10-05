@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, Ban, DollarSign } from "lucide-react";
+import { AlertTriangle, Ban, DollarSign, CheckCircle } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
 import { useToast } from "@/hooks/use-toast";
 
@@ -21,8 +21,10 @@ interface Booking {
   packageId: {
     name: string;
   };
+  numberOfTravelers: number;
   totalAmount: number;
   paymentStatus: string;
+  status: string;
 }
 
 interface CancelBookingModalProps {
@@ -43,23 +45,72 @@ export default function CancelBookingModal({
   const [cancellationReason, setCancellationReason] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Guard clause: Return early if no booking data
   if (!booking) return null;
 
-  const handleCancelBooking = async () => {
-    if (!user) {
+  /**
+   * Validates booking eligibility for cancellation
+   * @returns {boolean} true if booking can be cancelled
+   */
+  const validateCancellation = (): boolean => {
+    if (booking.status === "cancelled") {
       toast({
-        title: "Error",
-        description: "Please log in to cancel booking",
+        title: "Already Cancelled",
+        description: "This booking has already been cancelled",
         variant: "destructive",
       });
+      return false;
+    }
+
+    if (booking.status === "completed") {
+      toast({
+        title: "Cannot Cancel",
+        description: "Completed bookings cannot be cancelled",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    return true;
+  };
+
+  /**
+   * Handles the booking cancellation process
+   * Updates booking status, restores package seats, and processes refunds if applicable
+   */
+  const handleCancelBooking = async () => {
+    // Authentication check
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to cancel your booking",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate cancellation eligibility
+    if (!validateCancellation()) {
       return;
     }
 
     setIsProcessing(true);
 
     try {
+      // Extract user ID with fallback handling
       const userId = (user as any)?._id || (user as any)?.id;
-      
+
+      if (!userId) {
+        toast({
+          title: "User Identification Error",
+          description: "Unable to identify user. Please try logging in again.",
+          variant: "destructive",
+        });
+        setIsProcessing(false);
+        return;
+      }
+
+      // API call to cancel booking
       const response = await fetch("/api/user/bookings/cancel", {
         method: "POST",
         headers: {
@@ -68,26 +119,47 @@ export default function CancelBookingModal({
         body: JSON.stringify({
           bookingId: booking._id,
           userId: userId,
-          reason: cancellationReason,
+          reason: cancellationReason.trim() || undefined,
         }),
       });
 
       const data = await response.json();
 
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to cancel booking");
+      }
+
       if (data.success) {
-        onSuccess();
-      } else {
+        // Construct success message with refund information
+        const refundMessage = data.refunded 
+          ? " Your payment of KSh " + booking.totalAmount.toLocaleString() + " has been refunded." 
+          : "";
+        
         toast({
-          title: "Cancellation Failed",
-          description: data.error || "Please try again",
-          variant: "destructive",
+          title: "Booking Cancelled Successfully",
+          description: `Your booking for ${booking.packageId.name} has been cancelled.${refundMessage}`,
+          duration: 5000,
         });
+        
+        // Reset form state
+        setCancellationReason("");
+        
+        // Trigger success callback to refresh parent component
+        onSuccess();
+        
+        // Close modal after successful cancellation
+        onClose();
+      } else {
+        throw new Error(data.error || "Unexpected error occurred");
       }
     } catch (error) {
       console.error("Cancellation error:", error);
+      
       toast({
-        title: "Cancellation Error",
-        description: "An error occurred while cancelling your booking",
+        title: "Cancellation Failed",
+        description: error instanceof Error 
+          ? error.message 
+          : "An error occurred while cancelling your booking. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -95,9 +167,19 @@ export default function CancelBookingModal({
     }
   };
 
+  /**
+   * Handles modal close with state cleanup
+   */
+  const handleClose = () => {
+    if (!isProcessing) {
+      setCancellationReason("");
+      onClose();
+    }
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md">
+    <Dialog open={isOpen} onOpenChange={handleClose}>
+      <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-yellow-400" />
@@ -109,63 +191,110 @@ export default function CancelBookingModal({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Warning Message */}
-          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-yellow-400 mt-0.5" />
-              <div className="space-y-2">
-                <h4 className="text-yellow-400 font-semibold">Important Notice</h4>
-                <ul className="text-yellow-300 text-sm space-y-1 list-disc list-inside">
-                  <li>This action cannot be undone</li>
-                  <li>All related payments will be refunded</li>
-                  <li>Package availability will be updated</li>
-                  <li>You may be charged a cancellation fee</li>
+          {/* Critical Warning Notice */}
+          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-yellow-400 mt-0.5 flex-shrink-0" />
+              <div className="space-y-1">
+                <h4 className="text-yellow-400 font-semibold text-sm">Important Notice</h4>
+                <ul className="text-yellow-300 text-xs space-y-0.5">
+                  <li>• This action is permanent and cannot be reversed</li>
+                  <li>• Package seats will be restored for other travelers</li>
+                  {booking.paymentStatus === "paid" && (
+                    <li className="flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3 inline" />
+                      Full refund will be processed automatically
+                    </li>
+                  )}
                 </ul>
               </div>
             </div>
           </div>
 
-          {/* Booking Details */}
-          <div className="bg-slate-700/30 rounded-lg p-4">
-            <h4 className="text-white font-semibold mb-2">Booking Details</h4>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
+          {/* Booking Summary */}
+          <div className="bg-slate-700/30 rounded-lg p-3 space-y-2">
+            <h4 className="text-white font-semibold flex items-center gap-2 text-sm">
+              <DollarSign className="w-4 h-4 text-orange-400" />
+              Booking Details
+            </h4>
+            <div className="space-y-1.5 text-xs">
+              <div className="flex justify-between items-start gap-2">
                 <span className="text-slate-400">Package:</span>
-                <span className="text-white">{booking.packageId.name}</span>
+                <span className="text-white text-right font-medium">
+                  {booking.packageId.name}
+                </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Amount Paid:</span>
-                <span className="text-orange-400">
+                <span className="text-slate-400">Travelers:</span>
+                <span className="text-white font-medium">
+                  {booking.numberOfTravelers} {booking.numberOfTravelers === 1 ? 'person' : 'people'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Total Amount:</span>
+                <span className="text-orange-400 font-bold">
                   KSh {booking.totalAmount.toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Payment Status:</span>
-                <span className="text-yellow-400 capitalize">{booking.paymentStatus}</span>
+                <span className={`font-medium capitalize ${
+                  booking.paymentStatus === 'paid' 
+                    ? 'text-green-400' 
+                    : booking.paymentStatus === 'pending'
+                    ? 'text-yellow-400'
+                    : 'text-red-400'
+                }`}>
+                  {booking.paymentStatus}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Cancellation Reason */}
+          {/* Refund Information (if paid) */}
+          {booking.paymentStatus === "paid" && (
+            <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h5 className="text-green-400 font-semibold text-sm mb-1">
+                    Refund Information
+                  </h5>
+                  <p className="text-green-300 text-xs">
+                    Your payment of <strong>KSh {booking.totalAmount.toLocaleString()}</strong> will be 
+                    refunded to your original payment method within 5-10 business days.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Cancellation Reason Input */}
           <div className="space-y-2">
-            <Label htmlFor="cancellationReason">
-              Reason for Cancellation (Optional)
+            <Label htmlFor="cancellationReason" className="text-white text-sm">
+              Reason for Cancellation <span className="text-slate-400 text-xs">(Optional)</span>
             </Label>
             <Textarea
               id="cancellationReason"
               value={cancellationReason}
               onChange={(e) => setCancellationReason(e.target.value)}
-              className="bg-slate-700/50 border-slate-600 text-white min-h-[80px]"
-              placeholder="Please tell us why you are cancelling..."
+              className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500 min-h-[80px] text-sm focus:border-orange-400 focus:ring-orange-400/20"
+              placeholder="Share your reason for cancelling..."
+              disabled={isProcessing}
+              maxLength={500}
             />
+            <p className="text-xs text-slate-400 text-right">
+              {cancellationReason.length}/500 characters
+            </p>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-3 pt-4">
+          <div className="flex gap-3 pt-2">
             <Button
-              onClick={onClose}
+              onClick={handleClose}
               variant="outline"
-              className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-700/50"
+              disabled={isProcessing}
+              className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-700/50 hover:text-white transition-colors text-sm"
             >
               Keep Booking
             </Button>
@@ -173,17 +302,17 @@ export default function CancelBookingModal({
               onClick={handleCancelBooking}
               disabled={isProcessing}
               variant="destructive"
-              className="flex-1 bg-red-500/20 text-red-400 hover:bg-red-500/30 border-red-500/30"
+              className="flex-1 bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30 hover:border-red-500/50 transition-all text-sm"
             >
               {isProcessing ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-2"></div>
                   Cancelling...
                 </>
               ) : (
                 <>
                   <Ban className="w-4 h-4 mr-2" />
-                  Cancel Booking
+                  Confirm Cancellation
                 </>
               )}
             </Button>
