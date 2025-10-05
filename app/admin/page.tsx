@@ -34,6 +34,7 @@ export default function AdminDashboard() {
     activePackages: 0,
   });
   const [accessDenied, setAccessDenied] = useState(false);
+  const [loadingStats, setLoadingStats] = useState(true);
 
   useEffect(() => {
     if (loading) return;
@@ -56,6 +57,7 @@ export default function AdminDashboard() {
 
     const fetchAdminStats = async () => {
       try {
+        setLoadingStats(true);
         const token = localStorage.getItem("auth-token");
         if (!token) {
           router.push("/auth/login");
@@ -79,19 +81,21 @@ export default function AdminDashboard() {
         }
       } catch (error) {
         console.error("Failed to fetch admin stats:", error);
+      } finally {
+        setLoadingStats(false);
       }
     };
 
     fetchAdminStats();
   }, [user, router]);
 
-  if (loading) {
+  if (loading || loadingStats) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center">
           <div className="animate-spin rounded-full h-20 w-20 sm:h-32 sm:w-32 border-b-2 border-cyan-400 mx-auto"></div>
           <p className="text-white/70 mt-4 text-sm sm:text-base">
-            Verifying credentials...
+            {loading ? "Verifying credentials..." : "Loading dashboard..."}
           </p>
         </div>
       </div>
@@ -253,7 +257,14 @@ export default function AdminDashboard() {
                   Completion Rate
                 </p>
                 <h3 className="text-3xl sm:text-4xl font-bold text-emerald-400 mt-2">
-                  94%
+                  {stats.totalBookings > 0
+                    ? Math.round(
+                        ((stats.totalBookings - stats.pendingBookings) /
+                          stats.totalBookings) *
+                          100
+                      )
+                    : 0}
+                  %
                 </h3>
               </div>
               <div className="w-12 h-12 sm:w-14 sm:h-14 bg-emerald-500/20 rounded-full flex items-center justify-center flex-shrink-0">

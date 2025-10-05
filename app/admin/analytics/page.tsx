@@ -75,82 +75,7 @@ export default function AnalyticsPage() {
   const [accessDenied, setAccessDenied] = useState(false);
   const [timeRange, setTimeRange] = useState("12months");
   const [loading, setLoading] = useState(true);
-  const [analytics, setAnalytics] = useState<AnalyticsData>({
-    revenue: {
-      total: 4850000,
-      growth: 15.3,
-      monthly: [
-        { month: "Jan", amount: 350000 },
-        { month: "Feb", amount: 420000 },
-        { month: "Mar", amount: 380000 },
-        { month: "Apr", amount: 450000 },
-        { month: "May", amount: 520000 },
-        { month: "Jun", amount: 480000 },
-        { month: "Jul", amount: 550000 },
-        { month: "Aug", amount: 490000 },
-        { month: "Sep", amount: 430000 },
-        { month: "Oct", amount: 410000 },
-        { month: "Nov", amount: 370000 },
-        { month: "Dec", amount: 0 },
-      ],
-    },
-    bookings: {
-      total: 287,
-      growth: 12.5,
-      monthly: [
-        { month: "Jan", count: 18 },
-        { month: "Feb", count: 24 },
-        { month: "Mar", count: 22 },
-        { month: "Apr", count: 28 },
-        { month: "May", count: 32 },
-        { month: "Jun", count: 29 },
-        { month: "Jul", count: 35 },
-        { month: "Aug", count: 30 },
-        { month: "Sep", count: 26 },
-        { month: "Oct", count: 25 },
-        { month: "Nov", count: 18 },
-        { month: "Dec", count: 0 },
-      ],
-    },
-    users: {
-      total: 1247,
-      growth: 18.7,
-      newUsers: [
-        { month: "Jan", count: 42 },
-        { month: "Feb", count: 58 },
-        { month: "Mar", count: 51 },
-        { month: "Apr", count: 67 },
-        { month: "May", count: 73 },
-        { month: "Jun", count: 69 },
-        { month: "Jul", count: 82 },
-        { month: "Aug", count: 76 },
-        { month: "Sep", count: 64 },
-        { month: "Oct", count: 61 },
-        { month: "Nov", count: 54 },
-        { month: "Dec", count: 0 },
-      ],
-    },
-    topPackages: [
-      { name: "Masai Mara Safari", bookings: 45, revenue: 890000 },
-      { name: "Zanzibar Beach Escape", bookings: 38, revenue: 720000 },
-      { name: "Mt. Kenya Expedition", bookings: 32, revenue: 650000 },
-      { name: "Serengeti Adventure", bookings: 28, revenue: 580000 },
-      { name: "Amboseli Wildlife Tour", bookings: 24, revenue: 480000 },
-    ],
-    topDestinations: [
-      { name: "Masai Mara", bookings: 52 },
-      { name: "Zanzibar", bookings: 45 },
-      { name: "Mt. Kenya", bookings: 38 },
-      { name: "Serengeti", bookings: 35 },
-      { name: "Amboseli", bookings: 30 },
-      { name: "Diani Beach", bookings: 28 },
-    ],
-    paymentMethods: [
-      { method: "M-Pesa", count: 158, percentage: 55 },
-      { method: "Card", count: 86, percentage: 30 },
-      { method: "Bank Transfer", count: 43, percentage: 15 },
-    ],
-  });
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -169,22 +94,37 @@ export default function AnalyticsPage() {
   }, [user, authLoading, router]);
 
   useEffect(() => {
-    fetchAnalytics();
-  }, [timeRange]);
+    if (user && user.role === "admin") {
+      fetchAnalytics();
+    }
+  }, [timeRange, user]);
 
   const fetchAnalytics = async () => {
     try {
-      const response = await fetch(`/api/analytics?range=${timeRange}`, {
+      setLoading(true);
+      const response = await fetch(`/api/admin/analytics?range=${timeRange}`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("auth-token")}`,
         },
       });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch analytics");
+      }
+
       const data = await response.json();
-      if (data.analytics) {
+      if (data.success && data.analytics) {
         setAnalytics(data.analytics);
+      } else {
+        throw new Error(data.error || "Failed to load analytics");
       }
     } catch (error) {
       console.error("Error fetching analytics:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load analytics data",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -205,7 +145,7 @@ export default function AnalyticsPage() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-20 w-20 sm:h-32 sm:w-32 border-b-2 border-cyan-400 mx-auto"></div>
           <p className="text-white/70 mt-4 text-sm sm:text-base">
-            {authLoading ? "Verifying credentials..." : "Loading..."}
+            {authLoading ? "Verifying credentials..." : "Loading analytics..."}
           </p>
         </div>
       </div>
@@ -248,7 +188,7 @@ export default function AnalyticsPage() {
     );
   }
 
-  if (!user) {
+  if (!user || !analytics) {
     return null;
   }
 
@@ -403,9 +343,11 @@ export default function AnalyticsPage() {
             </div>
             <h3 className="text-2xl sm:text-3xl font-bold text-orange-400">
               KSh{" "}
-              {Math.round(
-                analytics.revenue.total / analytics.bookings.total
-              ).toLocaleString()}
+              {analytics.bookings.total > 0
+                ? Math.round(
+                    analytics.revenue.total / analytics.bookings.total
+                  ).toLocaleString()
+                : "0"}
             </h3>
             <div className="flex items-center gap-1 mt-2">
               <ArrowUpRight className="w-4 h-4 text-green-400" />
@@ -661,9 +603,12 @@ export default function AnalyticsPage() {
                         className="h-full bg-gradient-to-r from-cyan-400 to-purple-600"
                         style={{
                           width: `${
-                            (dest.bookings /
-                              analytics.topDestinations[0].bookings) *
-                            100
+                            analytics.topDestinations.length > 0 &&
+                            analytics.topDestinations[0].bookings > 0
+                              ? (dest.bookings /
+                                  analytics.topDestinations[0].bookings) *
+                                100
+                              : 0
                           }%`,
                         }}
                       />
@@ -699,9 +644,23 @@ export default function AnalyticsPage() {
                 <TrendingUp className="w-5 h-5 text-green-400" />
                 <p className="text-sm font-medium text-white">Peak Month</p>
               </div>
-              <p className="text-2xl font-bold text-green-400">July</p>
+              <p className="text-2xl font-bold text-green-400">
+                {analytics.revenue.monthly.length > 0
+                  ? analytics.revenue.monthly.reduce(
+                      (max, month) => (month.amount > max.amount ? month : max),
+                      analytics.revenue.monthly[0]
+                    ).month
+                  : "N/A"}
+              </p>
               <p className="text-xs text-slate-400 mt-1">
-                35 bookings, KSh 550K revenue
+                {analytics.bookings.monthly.length > 0
+                  ? `${
+                      analytics.bookings.monthly.reduce(
+                        (max, month) => (month.count > max.count ? month : max),
+                        analytics.bookings.monthly[0]
+                      ).count
+                    } bookings`
+                  : "0 bookings"}
               </p>
             </div>
 
@@ -710,9 +669,17 @@ export default function AnalyticsPage() {
                 <Package className="w-5 h-5 text-blue-400" />
                 <p className="text-sm font-medium text-white">Best Package</p>
               </div>
-              <p className="text-2xl font-bold text-blue-400">Masai Mara</p>
+              <p className="text-2xl font-bold text-blue-400">
+                {analytics.topPackages.length > 0
+                  ? analytics.topPackages[0].name
+                  : "N/A"}
+              </p>
               <p className="text-xs text-slate-400 mt-1">
-                45 bookings, KSh 890K revenue
+                {analytics.topPackages.length > 0
+                  ? `${
+                      analytics.topPackages[0].bookings
+                    } bookings, KSh ${analytics.topPackages[0].revenue.toLocaleString()} revenue`
+                  : "No data"}
               </p>
             </div>
 
@@ -721,7 +688,9 @@ export default function AnalyticsPage() {
                 <Users className="w-5 h-5 text-purple-400" />
                 <p className="text-sm font-medium text-white">User Growth</p>
               </div>
-              <p className="text-2xl font-bold text-purple-400">+18.7%</p>
+              <p className="text-2xl font-bold text-purple-400">
+                +{analytics.users.growth}%
+              </p>
               <p className="text-xs text-slate-400 mt-1">
                 New users this period
               </p>
@@ -734,7 +703,14 @@ export default function AnalyticsPage() {
                   Conversion Rate
                 </p>
               </div>
-              <p className="text-2xl font-bold text-orange-400">23%</p>
+              <p className="text-2xl font-bold text-orange-400">
+                {analytics.users.total > 0
+                  ? Math.round(
+                      (analytics.bookings.total / analytics.users.total) * 100
+                    )
+                  : 0}
+                %
+              </p>
               <p className="text-xs text-slate-400 mt-1">
                 Bookings to visitors ratio
               </p>
