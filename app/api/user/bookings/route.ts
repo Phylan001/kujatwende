@@ -1,96 +1,201 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDatabase } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
-import { verifyToken } from "@/lib/auth";
+
+export async function GET(request: NextRequest) {
+  try {
+    const db = await getDatabase();
+    const searchParams = request.nextUrl.searchParams;
+    const userId = searchParams.get("userId");
+
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: "userId query parameter required" },
+        { status: 400 }
+      );
+    }
+
+    let userObjectId: ObjectId;
+    try {
+      userObjectId = new ObjectId(userId);
+    } catch (error) {
+      return NextResponse.json(
+        { success: false, error: "Invalid user ID format" },
+        { status: 400 }
+      );
+    }
+
+    const bookings = await db
+      .collection("bookings")
+      .aggregate([
+        { $match: { userId: userObjectId } },
+        {
+          $lookup: {
+            from: "packages",
+            localField: "packageId",
+            foreignField: "_id",
+            as: "packageId",
+          },
+        },
+        { $unwind: "$packageId" },
+        { $sort: { createdAt: -1 } },
+      ])
+      .toArray();
+
+    return NextResponse.json({
+      success: true,
+      bookings,
+    });
+  } catch (error) {
+    console.error("Error fetching bookings:", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to fetch bookings" },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const token = authHeader.substring(7);
-    const user = verifyToken(token);
-    
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const db = await getDatabase();
     const body = await request.json();
 
-    // Validate required fields
-    const requiredFields = ["packageId", "travelDate", "numberOfTravelers", "emergencyContact"];
-    for (const field of requiredFields) {
-      if (!body[field]) {
-        return NextResponse.json(
-          { success: false, error: `Missing required field: ${field}` },
-          { status: 400 }
-        );
-      }
+    const {
+      packageId,
+      userId, // Get userId from body instead of token
+      numberOfTravelers,
+      travelDate,
+      specialRequests,
+      customerInfo,
+    } = body;
+
+    // Validate required fields including userId
+    if (
+      !packageId ||
+      !userId ||
+      !numberOfTravelers ||
+      !travelDate ||
+      !customerInfo
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Missing required fields",
+        },
+        { status: 400 }
+      );
     }
 
-    // Verify package exists and has available seats
-    const packageData = await db
-      .collection("packages")
-      .findOne({ _id: new ObjectId(body.packageId) });
-
-    if (!packageData) {
+    // Validate customer info
+    const { name, email, phone, emergencyContact } = customerInfo;
+    if (!name || !email || !phone || !emergencyContact) {
       return NextResponse.json(
-        { success: false, error: "Package not found" },
+        {
+          success: false,
+          error: "Missing required customer information",
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate ObjectIds
+    let packageObjectId: ObjectId;
+    let userObjectId: ObjectId;
+    try {
+      packageObjectId = new ObjectId(packageId);
+      userObjectId = new ObjectId(userId);
+    } catch (error) {
+      return NextResponse.json(
+        { success: false, error: "Invalid ID format" },
+        { status: 400 }
+      );
+    }
+
+    // Verify package exists and is available
+    const travelPackage = await db
+      .collection("packages")
+      .findOne({ _id: packageObjectId, status: "active" });
+
+    if (!travelPackage) {
+      return NextResponse.json(
+        { success: false, error: "Package not found or not active" },
         { status: 404 }
       );
     }
 
-    if (packageData.availableSeats < body.numberOfTravelers) {
+    // Check available seats
+    if (numberOfTravelers > travelPackage.availableSeats) {
       return NextResponse.json(
-        { success: false, error: "Not enough available seats" },
+        {
+          success: false,
+          error: `Only ${travelPackage.availableSeats} seats available`,
+        },
         { status: 400 }
       );
     }
 
     // Calculate total amount
-    const totalAmount = packageData.isFree ? 0 : packageData.price * body.numberOfTravelers;
+    const totalAmount = travelPackage.isFree
+      ? 0
+      : travelPackage.price * numberOfTravelers;
 
-    // Create booking
-    const booking = {
-      userId: new ObjectId(user.id),
-      packageId: new ObjectId(body.packageId),
-      customerInfo: body.customerInfo,
-      travelDate: new Date(body.travelDate),
-      numberOfTravelers: body.numberOfTravelers,
-      totalAmount,
-      paymentStatus: "pending" as const,
-      paymentMethod: "mpesa" as const,
-      status: "pending" as const,
-      specialRequests: body.specialRequests || "",
+    // Create booking document
+    const bookingDocument = {
+      userId: userObjectId,
+      packageId: packageObjectId,
+      customerInfo: {
+        name: name.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        emergencyContact: emergencyContact.trim(),
+      },
+      travelDate: new Date(travelDate),
+      numberOfTravelers: Number(numberOfTravelers),
+      totalAmount: totalAmount,
+      paymentStatus: "pending",
+      paymentMethod: "mpesa",
+      status: "pending",
+      specialRequests: specialRequests?.trim() || "",
       createdAt: new Date(),
       updatedAt: new Date(),
     };
 
-    const result = await db.collection("bookings").insertOne(booking);
+    // Insert booking
+    const result = await db.collection("bookings").insertOne(bookingDocument);
+
+    if (!result.insertedId) {
+      return NextResponse.json(
+        { success: false, error: "Failed to create booking" },
+        { status: 500 }
+      );
+    }
 
     // Update package available seats
     await db.collection("packages").updateOne(
-      { _id: new ObjectId(body.packageId) },
+      { _id: packageObjectId },
       {
-        $inc: { availableSeats: -body.numberOfTravelers, bookedSeats: body.numberOfTravelers },
+        $inc: { availableSeats: -numberOfTravelers },
         $set: { updatedAt: new Date() },
       }
     );
 
     return NextResponse.json({
       success: true,
+      message: "Booking created successfully",
       booking: {
         _id: result.insertedId,
-        ...booking,
+        ...bookingDocument,
       },
-    }, { status: 201 });
+    });
   } catch (error) {
     console.error("Error creating booking:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to create booking" },
+      {
+        success: false,
+        error: "Internal server error",
+        details:
+          process.env.NODE_ENV === "development" ? String(error) : undefined,
+      },
       { status: 500 }
     );
   }

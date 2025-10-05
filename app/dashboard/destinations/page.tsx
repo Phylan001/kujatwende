@@ -127,7 +127,7 @@ export default function DestinationsPage() {
     }
 
     try {
-      const response = await fetch("/api/user/reviews", {
+      const response = await fetch("/api/user/destination-reviews", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
