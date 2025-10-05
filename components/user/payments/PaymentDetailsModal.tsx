@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,432 +8,412 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { CreditCard, DollarSign, Calendar, User, Smartphone, Shield } from "lucide-react";
-import { useAuth } from "@/providers/AuthProvider";
-import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
+import {
+  CreditCard,
+  Calendar,
+  DollarSign,
+  CheckCircle,
+  XCircle,
+  Clock,
+  RefreshCw,
+  MapPin,
+  Users,
+  Smartphone,
+  ArrowRight,
+  Package,
+  Hash,
+} from "lucide-react";
+import { format } from "date-fns";
 
-interface Booking {
+/**
+ * Payment interface matching the payment data structure
+ */
+interface Payment {
   _id: string;
-  packageId: {
+  bookingId: {
     _id: string;
-    name: string;
+    packageId: {
+      _id: string;
+      name: string;
+      destinationName: string;
+    };
+    travelDate: string;
+    numberOfTravelers: number;
   };
-  totalAmount: number;
-  paymentStatus: string;
-  status: string;
+  amount: number;
+  paymentMethod: "mpesa" | "card" | "bank";
+  status: "pending" | "completed" | "paid" | "failed" | "refunded";
+  transactionType: "payment" | "refund";
+  transactionId?: string;
+  mpesaCode?: string;
+  mpesaPhone?: string;
+  refundReason?: string;
+  refundedAt?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-interface PaymentModalProps {
+/**
+ * Props interface for PaymentDetailsModal component
+ */
+interface PaymentDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  booking: Booking | null;
-  onSuccess: (paymentId: string) => void;
+  payment: Payment | null;
 }
 
-export default function PaymentModal({
+/**
+ * PaymentDetailsModal Component
+ *
+ * Displays comprehensive payment information including:
+ * - Payment status and transaction details
+ * - Booking and package information
+ * - Payment method specific details (M-Pesa, Card)
+ * - Refund information if applicable
+ * - Transaction timeline
+ *
+ * @param {PaymentDetailsModalProps} props - Component props
+ */
+export default function PaymentDetailsModal({
   isOpen,
   onClose,
-  booking,
-  onSuccess,
-}: PaymentModalProps) {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const [paymentMethod, setPaymentMethod] = useState<"mpesa" | "card">("mpesa");
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [mpesaPhone, setMpesaPhone] = useState("");
-  const [cardDetails, setCardDetails] = useState({
-    number: "",
-    expiry: "",
-    cvv: "",
-    name: "",
-  });
+  payment,
+}: PaymentDetailsModalProps) {
+  // Guard clause: Return null if no payment data
+  if (!payment) return null;
 
-  if (!booking) return null;
-
-  const handleSubmit = async () => {
-    if (!user) {
-      toast({
-        title: "Error",
-        description: "Please log in to make a payment",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Check if booking can be paid
-    if (booking.status === "cancelled") {
-      toast({
-        title: "Cannot Pay",
-        description: "This booking has been cancelled",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (booking.paymentStatus === "paid") {
-      toast({
-        title: "Already Paid",
-        description: "This booking has already been paid",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validate M-Pesa phone number
-    if (paymentMethod === "mpesa" && !mpesaPhone) {
-      toast({
-        title: "Phone Number Required",
-        description: "Please enter your M-Pesa phone number",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validate card details
-    if (paymentMethod === "card") {
-      if (!cardDetails.number || !cardDetails.expiry || !cardDetails.cvv || !cardDetails.name) {
-        toast({
-          title: "Incomplete Card Details",
-          description: "Please fill in all card details",
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-
-    setIsProcessing(true);
-
-    try {
-      const userId = (user as any)?._id || (user as any)?.id;
-
-      if (!userId) {
-        toast({
-          title: "Error",
-          description: "Unable to identify user. Please try logging in again.",
-          variant: "destructive",
-        });
-        setIsProcessing(false);
-        return;
-      }
-      
-      const response = await fetch("/api/user/payments", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          bookingId: booking._id,
-          userId: userId,
-          amount: booking.totalAmount,
-          paymentMethod: paymentMethod,
-          mpesaPhone: paymentMethod === "mpesa" ? mpesaPhone : undefined,
-          cardDetails: paymentMethod === "card" ? cardDetails : undefined,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        toast({
-          title: "Payment Successful",
-          description: `Your payment of KSh ${booking.totalAmount.toLocaleString()} has been processed`,
-        });
-        
-        // Reset form
-        setMpesaPhone("");
-        setCardDetails({ number: "", expiry: "", cvv: "", name: "" });
-        
-        onSuccess(data.payment._id);
-      } else {
-        toast({
-          title: "Payment Failed",
-          description: data.error || "Please try again",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Payment error:", error);
-      toast({
-        title: "Payment Error",
-        description: "An error occurred while processing your payment",
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessing(false);
-    }
+  /**
+   * Returns appropriate color classes based on payment status
+   * @param {string} status - Payment status
+   * @returns {string} Tailwind CSS classes for status badge
+   */
+  const getStatusColor = (status: string): string => {
+    const statusColors: Record<string, string> = {
+      completed: "bg-green-500/20 text-green-400 border-green-500/30",
+      paid: "bg-green-500/20 text-green-400 border-green-500/30",
+      pending: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+      failed: "bg-red-500/20 text-red-400 border-red-500/30",
+      refunded: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+    };
+    return (
+      statusColors[status] || "bg-gray-500/20 text-gray-400 border-gray-500/30"
+    );
   };
 
-  const handleCardDetailChange = (field: string, value: string) => {
-    let formattedValue = value;
-
-    // Format card number with spaces
-    if (field === "number") {
-      formattedValue = value.replace(/\s/g, "").replace(/(\d{4})/g, "$1 ").trim();
-      if (formattedValue.length > 19) return; // Max 16 digits + 3 spaces
-    }
-
-    // Format expiry as MM/YY
-    if (field === "expiry") {
-      formattedValue = value.replace(/\D/g, "");
-      if (formattedValue.length >= 2) {
-        formattedValue = formattedValue.slice(0, 2) + "/" + formattedValue.slice(2, 4);
-      }
-      if (formattedValue.length > 5) return;
-    }
-
-    // Limit CVV to 3-4 digits
-    if (field === "cvv") {
-      formattedValue = value.replace(/\D/g, "");
-      if (formattedValue.length > 4) return;
-    }
-
-    setCardDetails((prev) => ({
-      ...prev,
-      [field]: formattedValue,
-    }));
+  /**
+   * Returns appropriate icon component based on payment status
+   * @param {string} status - Payment status
+   * @returns {JSX.Element} Icon component
+   */
+  const getStatusIcon = (status: string): JSX.Element => {
+    const iconProps = { className: "w-4 h-4" };
+    const statusIcons: Record<string, JSX.Element> = {
+      completed: <CheckCircle {...iconProps} />,
+      paid: <CheckCircle {...iconProps} />,
+      pending: <Clock {...iconProps} />,
+      failed: <XCircle {...iconProps} />,
+      refunded: <RefreshCw {...iconProps} />,
+    };
+    return statusIcons[status] || <Clock {...iconProps} />;
   };
 
-  const handlePhoneChange = (value: string) => {
-    // Remove non-numeric characters
-    let formatted = value.replace(/\D/g, "");
-    
-    // Limit to 12 characters (254XXXXXXXXX)
-    if (formatted.length > 12) return;
-    
-    setMpesaPhone(formatted);
+  /**
+   * Returns color classes for payment method badge
+   * @param {string} method - Payment method
+   * @returns {string} Tailwind CSS classes
+   */
+  const getPaymentMethodColor = (method: string): string => {
+    const methodColors: Record<string, string> = {
+      mpesa: "bg-green-500/20 text-green-400 border-green-500/30",
+      card: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+      bank: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+    };
+    return (
+      methodColors[method] || "bg-gray-500/20 text-gray-400 border-gray-500/30"
+    );
   };
 
-  const handleClose = () => {
-    if (!isProcessing) {
-      onClose();
-    }
+  /**
+   * Returns color classes for transaction type badge
+   * @param {string} type - Transaction type
+   * @returns {string} Tailwind CSS classes
+   */
+  const getTransactionTypeColor = (type: string): string => {
+    return type === "refund"
+      ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
+      : "bg-green-500/20 text-green-400 border-green-500/30";
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md max-h-[90vh] overflow-y-auto">
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl flex items-center gap-2">
-            <Shield className="w-5 h-5 text-green-400" />
-            Secure Payment
+          <DialogTitle className="text-2xl flex items-center gap-2">
+            <CreditCard className="w-6 h-6 text-orange-400" />
+            Payment Details
           </DialogTitle>
           <DialogDescription className="text-slate-400">
-            Complete payment for your booking
+            Complete transaction information and history
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          {/* Payment Summary */}
-          <div className="bg-gradient-to-br from-orange-500/10 to-cyan-500/10 border border-orange-500/20 rounded-lg p-4">
-            <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
-              <DollarSign className="w-4 h-4 text-orange-400" />
-              Payment Summary
-            </h4>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-slate-400">Package:</span>
-                <span className="text-white font-medium">{booking.packageId.name}</span>
+        <div className="space-y-6">
+          {/* Payment Status Section */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <h4 className="text-slate-400 text-sm font-medium">
+                Payment Status
+              </h4>
+              <Badge className={getStatusColor(payment.status)}>
+                <span className="flex items-center gap-1.5">
+                  {getStatusIcon(payment.status)}
+                  <span className="capitalize">{payment.status}</span>
+                </span>
+              </Badge>
+            </div>
+            <div className="space-y-2">
+              <h4 className="text-slate-400 text-sm font-medium">
+                Payment Method
+              </h4>
+              <Badge className={getPaymentMethodColor(payment.paymentMethod)}>
+                <span className="uppercase">{payment.paymentMethod}</span>
+              </Badge>
+            </div>
+            <div className="space-y-2">
+              <h4 className="text-slate-400 text-sm font-medium">
+                Transaction Type
+              </h4>
+              <Badge
+                className={getTransactionTypeColor(payment.transactionType)}
+              >
+                <span className="capitalize">{payment.transactionType}</span>
+              </Badge>
+            </div>
+          </div>
+
+          {/* Amount Section */}
+          <div className="bg-gradient-to-br from-orange-500/10 to-cyan-500/10 border border-orange-500/20 rounded-lg p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-slate-400 text-sm mb-1">
+                  {payment.transactionType === "refund"
+                    ? "Refund Amount"
+                    : "Payment Amount"}
+                </h4>
+                <div className="flex items-baseline gap-2">
+                  <DollarSign className="w-6 h-6 text-orange-400" />
+                  <span className="text-3xl font-bold text-white">
+                    KSh {payment.amount.toLocaleString()}
+                  </span>
+                </div>
               </div>
+              {payment.status === "completed" || payment.status === "paid" ? (
+                <CheckCircle className="w-12 h-12 text-green-400" />
+              ) : payment.status === "failed" ? (
+                <XCircle className="w-12 h-12 text-red-400" />
+              ) : (
+                <Clock className="w-12 h-12 text-yellow-400" />
+              )}
+            </div>
+          </div>
+
+          {/* Booking Information */}
+          <div className="bg-slate-700/30 rounded-lg p-4 space-y-3">
+            <h4 className="text-white font-semibold flex items-center gap-2 mb-3">
+              <Package className="w-4 h-4 text-orange-400" />
+              Booking Information
+            </h4>
+
+            <div className="space-y-2">
+              <div className="flex items-start justify-between gap-4">
+                <span className="text-slate-400 text-sm">Package Name:</span>
+                <span className="text-white font-medium text-sm text-right">
+                  {payment.bookingId.packageId.name}
+                </span>
+              </div>
+
+              <div className="flex items-start justify-between gap-4">
+                <span className="text-slate-400 text-sm flex items-center gap-1">
+                  <MapPin className="w-3 h-3" />
+                  Destination:
+                </span>
+                <span className="text-orange-400 text-sm font-medium">
+                  {payment.bookingId.packageId.destinationName}
+                </span>
+              </div>
+
               <div className="h-px bg-slate-600/50 my-2"></div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-300 font-semibold">Total Amount:</span>
-                <span className="text-orange-400 font-bold text-xl">
-                  KSh {booking.totalAmount.toLocaleString()}
+
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400 text-sm flex items-center gap-1">
+                  <Calendar className="w-3 h-3" />
+                  Travel Date:
+                </span>
+                <span className="text-white text-sm">
+                  {format(
+                    new Date(payment.bookingId.travelDate),
+                    "MMM dd, yyyy"
+                  )}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400 text-sm flex items-center gap-1">
+                  <Users className="w-3 h-3" />
+                  Travelers:
+                </span>
+                <span className="text-white text-sm">
+                  {payment.bookingId.numberOfTravelers}{" "}
+                  {payment.bookingId.numberOfTravelers === 1
+                    ? "person"
+                    : "people"}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Payment Method */}
-          <div className="space-y-3">
-            <Label className="text-white font-semibold">Select Payment Method</Label>
-            <RadioGroup
-              value={paymentMethod}
-              onValueChange={(value: "mpesa" | "card") => setPaymentMethod(value)}
-              disabled={isProcessing}
-              className="space-y-2"
-            >
-              <div className={`flex items-center space-x-3 p-3 rounded-lg border transition-all ${
-                paymentMethod === "mpesa" 
-                  ? "border-green-500/50 bg-green-500/10" 
-                  : "border-slate-600 bg-slate-700/30"
-              }`}>
-                <RadioGroupItem value="mpesa" id="mpesa" disabled={isProcessing} />
-                <Label 
-                  htmlFor="mpesa" 
-                  className="flex items-center gap-2 cursor-pointer flex-1"
-                >
-                  <Smartphone className="w-4 h-4 text-green-400" />
-                  <span>M-Pesa</span>
-                  <span className="text-xs text-slate-400 ml-auto">Recommended</span>
-                </Label>
-              </div>
-              <div className={`flex items-center space-x-3 p-3 rounded-lg border transition-all ${
-                paymentMethod === "card" 
-                  ? "border-blue-500/50 bg-blue-500/10" 
-                  : "border-slate-600 bg-slate-700/30"
-              }`}>
-                <RadioGroupItem value="card" id="card" disabled={isProcessing} />
-                <Label 
-                  htmlFor="card" 
-                  className="flex items-center gap-2 cursor-pointer flex-1"
-                >
-                  <CreditCard className="w-4 h-4 text-blue-400" />
-                  <span>Credit/Debit Card</span>
-                </Label>
-              </div>
-            </RadioGroup>
-          </div>
-
-          {/* M-Pesa Details */}
-          {paymentMethod === "mpesa" && (
-            <div className="space-y-3 border border-green-500/20 rounded-lg p-4 bg-green-500/5">
-              <h4 className="text-white font-semibold flex items-center gap-2">
-                <Smartphone className="w-4 h-4 text-green-400" />
-                M-Pesa Details
+          {/* Transaction Details */}
+          {payment.transactionId && (
+            <div className="bg-slate-700/30 rounded-lg p-4">
+              <h4 className="text-white font-semibold flex items-center gap-2 mb-3">
+                <Hash className="w-4 h-4 text-cyan-400" />
+                Transaction Details
               </h4>
-              
               <div className="space-y-2">
-                <Label htmlFor="mpesaPhone" className="text-slate-300">
-                  M-Pesa Phone Number *
-                </Label>
-                <Input
-                  id="mpesaPhone"
-                  type="tel"
-                  placeholder="254712345678"
-                  value={mpesaPhone}
-                  onChange={(e) => handlePhoneChange(e.target.value)}
-                  disabled={isProcessing}
-                  className="bg-slate-700/50 border-slate-600 text-white disabled:opacity-50"
-                />
-                <p className="text-xs text-slate-400">
-                  Enter your phone number in format: 254XXXXXXXXX
-                </p>
-              </div>
-
-              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 mt-3">
-                <h5 className="text-blue-400 font-semibold mb-2 text-sm flex items-center gap-2">
-                  <Shield className="w-4 h-4" />
-                  Payment Instructions
-                </h5>
-                <ol className="text-blue-300 text-xs space-y-1 list-decimal list-inside">
-                  <li>Click "Pay Now" to initiate payment</li>
-                  <li>You will receive an STK push prompt on your phone</li>
-                  <li>Enter your M-Pesa PIN to confirm</li>
-                  <li>Wait for confirmation message</li>
-                </ol>
-              </div>
-            </div>
-          )}
-
-          {/* Card Details */}
-          {paymentMethod === "card" && (
-            <div className="space-y-3 border border-blue-500/20 rounded-lg p-4 bg-blue-500/5">
-              <h4 className="text-white font-semibold flex items-center gap-2">
-                <CreditCard className="w-4 h-4 text-blue-400" />
-                Card Details
-              </h4>
-              
-              <div className="space-y-2">
-                <Label htmlFor="cardNumber" className="text-slate-300">
-                  Card Number *
-                </Label>
-                <Input
-                  id="cardNumber"
-                  placeholder="1234 5678 9012 3456"
-                  value={cardDetails.number}
-                  onChange={(e) => handleCardDetailChange("number", e.target.value)}
-                  disabled={isProcessing}
-                  className="bg-slate-700/50 border-slate-600 text-white disabled:opacity-50"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="expiry" className="text-slate-300">
-                    Expiry Date *
-                  </Label>
-                  <Input
-                    id="expiry"
-                    placeholder="MM/YY"
-                    value={cardDetails.expiry}
-                    onChange={(e) => handleCardDetailChange("expiry", e.target.value)}
-                    disabled={isProcessing}
-                    className="bg-slate-700/50 border-slate-600 text-white disabled:opacity-50"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="cvv" className="text-slate-300">
-                    CVV *
-                  </Label>
-                  <Input
-                    id="cvv"
-                    type="password"
-                    placeholder="123"
-                    value={cardDetails.cvv}
-                    onChange={(e) => handleCardDetailChange("cvv", e.target.value)}
-                    disabled={isProcessing}
-                    maxLength={4}
-                    className="bg-slate-700/50 border-slate-600 text-white disabled:opacity-50"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="cardName" className="text-slate-300">
-                  Cardholder Name *
-                </Label>
-                <Input
-                  id="cardName"
-                  placeholder="John Doe"
-                  value={cardDetails.name}
-                  onChange={(e) => handleCardDetailChange("name", e.target.value)}
-                  disabled={isProcessing}
-                  className="bg-slate-700/50 border-slate-600 text-white disabled:opacity-50"
-                />
-              </div>
-
-              <div className="bg-slate-700/30 border border-slate-600 rounded-lg p-3 mt-3">
-                <p className="text-slate-300 text-xs flex items-start gap-2">
-                  <Shield className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
-                  <span>
-                    Your card information is encrypted and secure. We never store your full card details.
+                <div className="flex items-start justify-between gap-4">
+                  <span className="text-slate-400 text-sm">
+                    Transaction ID:
                   </span>
-                </p>
+                  <span className="text-cyan-400 text-sm font-mono break-all text-right">
+                    {payment.transactionId}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 text-sm">
+                    Transaction Date:
+                  </span>
+                  <span className="text-white text-sm">
+                    {format(
+                      new Date(payment.createdAt),
+                      "MMM dd, yyyy 'at' h:mm a"
+                    )}
+                  </span>
+                </div>
+                {payment.updatedAt !== payment.createdAt && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400 text-sm">
+                      Last Updated:
+                    </span>
+                    <span className="text-white text-sm">
+                      {format(
+                        new Date(payment.updatedAt),
+                        "MMM dd, yyyy 'at' h:mm a"
+                      )}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           )}
 
-          {/* Submit Button */}
-          <div className="pt-2 space-y-2">
+          {/* M-Pesa Specific Details */}
+          {payment.paymentMethod === "mpesa" &&
+            (payment.mpesaPhone || payment.mpesaCode) && (
+              <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
+                <h4 className="text-green-400 font-semibold flex items-center gap-2 mb-3">
+                  <Smartphone className="w-4 h-4" />
+                  M-Pesa Details
+                </h4>
+                <div className="space-y-2">
+                  {payment.mpesaPhone && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-green-300 text-sm">
+                        Phone Number:
+                      </span>
+                      <span className="text-white text-sm font-medium">
+                        {payment.mpesaPhone}
+                      </span>
+                    </div>
+                  )}
+                  {payment.mpesaCode && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-green-300 text-sm">
+                        M-Pesa Code:
+                      </span>
+                      <span className="text-white text-sm font-mono">
+                        {payment.mpesaCode}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+          {/* Refund Information */}
+          {payment.transactionType === "refund" && payment.refundReason && (
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+              <h4 className="text-blue-400 font-semibold flex items-center gap-2 mb-3">
+                <RefreshCw className="w-4 h-4" />
+                Refund Information
+              </h4>
+              <div className="space-y-2">
+                <div className="flex items-start gap-2">
+                  <span className="text-blue-300 text-sm font-medium">
+                    Reason:
+                  </span>
+                  <span className="text-white text-sm flex-1">
+                    {payment.refundReason}
+                  </span>
+                </div>
+                {payment.refundedAt && (
+                  <div className="flex items-center justify-between pt-2 border-t border-blue-500/20">
+                    <span className="text-blue-300 text-sm">Refunded On:</span>
+                    <span className="text-white text-sm">
+                      {format(
+                        new Date(payment.refundedAt),
+                        "MMM dd, yyyy 'at' h:mm a"
+                      )}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Status-specific Messages */}
+          {payment.status === "pending" && (
+            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
+              <p className="text-yellow-300 text-sm flex items-start gap-2">
+                <Clock className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <span>
+                  This payment is currently being processed. You will receive a
+                  confirmation once completed.
+                </span>
+              </p>
+            </div>
+          )}
+
+          {payment.status === "failed" && (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+              <p className="text-red-300 text-sm flex items-start gap-2">
+                <XCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <span>
+                  This payment failed. Please try again or contact support if
+                  the issue persists.
+                </span>
+              </p>
+            </div>
+          )}
+
+          {/* Close Button */}
+          <div className="flex justify-end pt-2">
             <Button
-              onClick={handleSubmit}
-              disabled={isProcessing}
-              className="w-full bg-gradient-to-r from-orange-500 to-cyan-500 hover:from-orange-600 hover:to-cyan-600 text-white font-semibold py-6 disabled:opacity-50"
+              onClick={onClose}
+              className="bg-gradient-to-r from-orange-500 to-cyan-500 hover:from-orange-600 hover:to-cyan-600"
             >
-              {isProcessing ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                  Processing Payment...
-                </>
-              ) : (
-                <>
-                  <DollarSign className="w-5 h-5 mr-2" />
-                  Pay KSh {booking.totalAmount.toLocaleString()}
-                </>
-              )}
-            </Button>
-            
-            <Button
-              onClick={handleClose}
-              disabled={isProcessing}
-              variant="outline"
-              className="w-full border-slate-600 text-slate-300 hover:bg-slate-700/50 disabled:opacity-50"
-            >
-              Cancel
+              Close
+              <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </div>
         </div>

@@ -1,10 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -96,7 +93,7 @@ export default function UserPaymentsPage() {
       }
 
       // Build URL with optional payment filter
-      const url = paymentId 
+      const url = paymentId
         ? `/api/user/payments?userId=${userId}&paymentId=${paymentId}`
         : `/api/user/payments?userId=${userId}`;
 
@@ -178,7 +175,7 @@ export default function UserPaymentsPage() {
    * Returns badge color based on transaction type
    */
   const getTransactionTypeColor = (type: string) => {
-    return type === "refund" 
+    return type === "refund"
       ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
       : "bg-green-500/20 text-green-400 border-green-500/30";
   };
@@ -199,7 +196,7 @@ export default function UserPaymentsPage() {
    * Clears payment filter and shows all payments
    */
   const handleViewAllPayments = () => {
-    router.push('/dashboard/payments');
+    router.push("/dashboard/payments");
   };
 
   if (authLoading || loading) {
@@ -221,7 +218,9 @@ export default function UserPaymentsPage() {
           <CreditCard className="w-8 h-8 text-orange-400" />
           <div>
             <h2 className="text-3xl font-bold text-white">My Payments</h2>
-            <p className="text-white/70">View your payment history and details</p>
+            <p className="text-white/70">
+              View your payment history and details
+            </p>
             {paymentId && (
               <p className="text-orange-400 text-sm">
                 Viewing payment: {paymentId}
@@ -253,8 +252,7 @@ export default function UserPaymentsPage() {
               <p className="text-white/70 mb-6">
                 {paymentId
                   ? "The payment you're looking for doesn't exist or you don't have access to it"
-                  : "Your payment history will appear here"
-                }
+                  : "Your payment history will appear here"}
               </p>
               <Button
                 onClick={() => router.push("/dashboard/bookings")}
@@ -295,10 +293,18 @@ export default function UserPaymentsPage() {
                             {payment.status}
                           </span>
                         </Badge>
-                        <Badge className={getPaymentMethodColor(payment.paymentMethod)}>
+                        <Badge
+                          className={getPaymentMethodColor(
+                            payment.paymentMethod
+                          )}
+                        >
                           {payment.paymentMethod.toUpperCase()}
                         </Badge>
-                        <Badge className={getTransactionTypeColor(payment.transactionType)}>
+                        <Badge
+                          className={getTransactionTypeColor(
+                            payment.transactionType
+                          )}
+                        >
                           {payment.transactionType}
                         </Badge>
                       </div>
@@ -307,7 +313,10 @@ export default function UserPaymentsPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
                       <div className="flex items-center gap-2 text-white/70">
                         <Calendar className="w-4 h-4 text-orange-400" />
-                        {format(new Date(payment.bookingId.travelDate), "MMM dd, yyyy")}
+                        {format(
+                          new Date(payment.bookingId.travelDate),
+                          "MMM dd, yyyy"
+                        )}
                       </div>
                       <div className="flex items-center gap-2 text-white/70">
                         <DollarSign className="w-4 h-4 text-orange-400" />
@@ -332,20 +341,25 @@ export default function UserPaymentsPage() {
                         </p>
                         {payment.refundedAt && (
                           <p className="text-blue-300 text-xs mt-1">
-                            Refunded on: {format(new Date(payment.refundedAt), "MMM dd, yyyy 'at' h:mm a")}
+                            Refunded on:{" "}
+                            {format(
+                              new Date(payment.refundedAt),
+                              "MMM dd, yyyy 'at' h:mm a"
+                            )}
                           </p>
                         )}
                       </div>
                     )}
 
                     {/* M-Pesa Details */}
-                    {payment.paymentMethod === "mpesa" && payment.mpesaPhone && (
-                      <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3">
-                        <p className="text-green-300 text-sm">
-                          <strong>M-Pesa Phone:</strong> {payment.mpesaPhone}
-                        </p>
-                      </div>
-                    )}
+                    {payment.paymentMethod === "mpesa" &&
+                      payment.mpesaPhone && (
+                        <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3">
+                          <p className="text-green-300 text-sm">
+                            <strong>M-Pesa Phone:</strong> {payment.mpesaPhone}
+                          </p>
+                        </div>
+                      )}
                   </div>
 
                   {/* Actions */}
