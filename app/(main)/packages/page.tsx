@@ -180,7 +180,7 @@ const PackageBookingButton: React.FC<BookingButtonProps> = ({
    */
   const handleBookingClick = () => {
     if (!config.disabled) {
-      window.location.href = `/dashboard/booking?package=${pkg._id}`;
+      window.location.href = "/dashboard/packages";
     }
   };
 

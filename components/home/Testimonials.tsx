@@ -22,7 +22,7 @@ export function Testimonials() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/reviews?limit=6")
+    fetch("/api/user/reviews?limit=6")
       .then((res) => res.json())
       .then((data) => {
         if (data.reviews) {
