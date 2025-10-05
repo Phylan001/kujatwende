@@ -1,13 +1,9 @@
-// app/dashboard/bookings/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +13,6 @@ import {
   Users,
   DollarSign,
   Eye,
-  Star,
   Clock,
   CheckCircle,
   XCircle,
@@ -89,7 +84,7 @@ export default function UserBookingsPage() {
       return;
     }
     fetchUserBookings();
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, bookingId]);
 
   const fetchUserBookings = async () => {
     try {
@@ -104,15 +99,21 @@ export default function UserBookingsPage() {
         return;
       }
 
-      const url = bookingId 
-        ? `/api/user/bookings?userId=${userId}&bookingId=${bookingId}`
-        : `/api/user/bookings?userId=${userId}`;
-
+      const url = `/api/user/bookings?userId=${userId}`;
       const response = await fetch(url);
 
       if (response.ok) {
         const data = await response.json();
-        setBookings(data.bookings || []);
+        let fetchedBookings = data.bookings || [];
+        
+        // Filter by bookingId if present in URL
+        if (bookingId) {
+          fetchedBookings = fetchedBookings.filter(
+            (booking: Booking) => booking._id === bookingId
+          );
+        }
+        
+        setBookings(fetchedBookings);
       }
     } catch (error) {
       console.error("Error fetching bookings:", error);
@@ -192,7 +193,7 @@ export default function UserBookingsPage() {
       description: "Your payment has been processed successfully",
     });
     setIsPaymentModalOpen(false);
-    fetchUserBookings(); // Refresh bookings
+    fetchUserBookings();
     router.push(`/dashboard/payments?payment=${paymentId}`);
   };
 
@@ -202,7 +203,13 @@ export default function UserBookingsPage() {
       description: "Your booking has been cancelled successfully",
     });
     setIsCancelModalOpen(false);
-    fetchUserBookings(); // Refresh bookings
+    // Clear booking filter and refresh all bookings
+    router.push('/dashboard/bookings');
+    fetchUserBookings();
+  };
+
+  const handleViewAllBookings = () => {
+    router.push('/dashboard/bookings');
   };
 
   if (authLoading || loading) {
@@ -219,17 +226,29 @@ export default function UserBookingsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Calendar className="w-8 h-8 text-orange-400" />
-        <div>
-          <h2 className="text-3xl font-bold text-white">My Bookings</h2>
-          <p className="text-white/70">Manage your adventure bookings</p>
-          {bookingId && (
-            <p className="text-orange-400 text-sm">
-              Showing specific booking details
-            </p>
-          )}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Calendar className="w-8 h-8 text-orange-400" />
+          <div>
+            <h2 className="text-3xl font-bold text-white">My Bookings</h2>
+            <p className="text-white/70">Manage your adventure bookings</p>
+            {bookingId && (
+              <p className="text-orange-400 text-sm">
+                Viewing booking: {bookingId}
+              </p>
+            )}
+          </div>
         </div>
+        
+        {bookingId && (
+          <Button
+            onClick={handleViewAllBookings}
+            variant="outline"
+            className="border-orange-500/30 text-orange-400 hover:bg-orange-500/10"
+          >
+            View All Bookings
+          </Button>
+        )}
       </div>
 
       {/* Bookings Grid */}
@@ -239,10 +258,13 @@ export default function UserBookingsPage() {
             <CardContent className="text-center py-12">
               <Calendar className="w-16 h-16 text-orange-400/50 mx-auto mb-4" />
               <h3 className="text-xl font-bold text-white mb-2">
-                No bookings yet
+                {bookingId ? "Booking not found" : "No bookings yet"}
               </h3>
               <p className="text-white/70 mb-6">
-                Start your adventure by booking a package
+                {bookingId 
+                  ? "The booking you're looking for doesn't exist or you don't have access to it"
+                  : "Start your adventure by booking a package"
+                }
               </p>
               <Button
                 onClick={() => router.push("/packages")}
