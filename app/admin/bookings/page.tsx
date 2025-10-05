@@ -100,17 +100,29 @@ export default function BookingsPage() {
 
   const fetchBookings = async () => {
     try {
-      const response = await fetch("/api/bookings", {
+      const response = await fetch("/api/admin/bookings", {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("auth-token")}`,
         },
       });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch bookings");
+      }
+
       const data = await response.json();
-      if (data.bookings) {
+      if (data.success && data.bookings) {
         setBookings(data.bookings);
+      } else {
+        throw new Error(data.error || "Failed to load bookings");
       }
     } catch (error) {
       console.error("Error fetching bookings:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load bookings",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }

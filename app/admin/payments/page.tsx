@@ -38,10 +38,14 @@ interface Payment {
   bookingId: string;
   customerName: string;
   customerEmail: string;
+  customerPhone?: string;
   amount: number;
   paymentMethod: string;
   transactionId: string;
   status: string;
+  packageName?: string;
+  packageDestination?: string;
+  numberOfTravelers?: number;
   createdAt: string;
 }
 
@@ -73,22 +77,36 @@ export default function PaymentsPage() {
   }, [user, authLoading, router]);
 
   useEffect(() => {
-    fetchPayments();
-  }, []);
+    if (user && user.role === "admin") {
+      fetchPayments();
+    }
+  }, [user]);
 
   const fetchPayments = async () => {
     try {
-      const response = await fetch("/api/payments", {
+      const response = await fetch("/api/admin/payments", {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("auth-token")}`,
         },
       });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch payments");
+      }
+
       const data = await response.json();
-      if (data.payments) {
+      if (data.success && data.payments) {
         setPayments(data.payments);
+      } else {
+        throw new Error(data.error || "Failed to load payments");
       }
     } catch (error) {
       console.error("Error fetching payments:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load payments",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -98,7 +116,9 @@ export default function PaymentsPage() {
     const matchesSearch =
       payment.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       payment.customerEmail.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      payment.transactionId.toLowerCase().includes(searchQuery.toLowerCase());
+      payment.transactionId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (payment.packageName &&
+        payment.packageName.toLowerCase().includes(searchQuery.toLowerCase()));
 
     const matchesStatus =
       statusFilter === "all" || payment.status === statusFilter;
@@ -111,6 +131,7 @@ export default function PaymentsPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "paid":
+      case "completed":
         return "bg-green-500/20 text-green-400 border-green-500/30";
       case "pending":
         return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
@@ -126,6 +147,7 @@ export default function PaymentsPage() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "paid":
+      case "completed":
         return <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />;
       case "pending":
         return <Clock className="w-3 h-3 sm:w-4 sm:h-4" />;
@@ -139,8 +161,47 @@ export default function PaymentsPage() {
   };
 
   const totalRevenue = filteredPayments
-    .filter((p) => p.status === "paid")
+    .filter((p) => p.status === "paid" || p.status === "completed")
     .reduce((sum, p) => sum + p.amount, 0);
+
+  const exportToCSV = () => {
+    const headers = [
+      "Transaction ID",
+      "Customer",
+      "Email",
+      "Amount",
+      "Method",
+      "Status",
+      "Date",
+    ];
+    const csvData = filteredPayments.map((p) => [
+      p.transactionId,
+      p.customerName,
+      p.customerEmail,
+      p.amount,
+      p.paymentMethod.toUpperCase(),
+      p.status,
+      format(new Date(p.createdAt), "MMM dd, yyyy"),
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...csvData.map((row) => row.join(",")),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `payments-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: "Success",
+      description: "Payments exported successfully",
+    });
+  };
 
   if (authLoading || loading) {
     return (
@@ -148,7 +209,7 @@ export default function PaymentsPage() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-20 w-20 sm:h-32 sm:w-32 border-b-2 border-cyan-400 mx-auto"></div>
           <p className="text-white/70 mt-4 text-sm sm:text-base">
-            {authLoading ? "Verifying credentials..." : "Loading..."}
+            {authLoading ? "Verifying credentials..." : "Loading payments..."}
           </p>
         </div>
       </div>
@@ -201,7 +262,7 @@ export default function PaymentsPage() {
         <CreditCard className="w-6 h-6 sm:w-8 sm:h-8 text-cyan-400" />
         <div>
           <h2 className="text-2xl sm:text-3xl font-bold text-white">
-            Payments
+            Payments Management
           </h2>
           <p className="text-slate-400 mt-1 text-xs sm:text-base">
             Track and manage all payment transactions
@@ -267,9 +328,12 @@ export default function PaymentsPage() {
                 View and manage all payment records
               </CardDescription>
             </div>
-            <Button className="bg-gradient-to-r from-cyan-400 to-purple-600 hover:from-cyan-500 hover:to-purple-700 text-sm w-full sm:w-auto">
+            <Button
+              onClick={exportToCSV}
+              className="bg-gradient-to-r from-cyan-400 to-purple-600 hover:from-cyan-500 hover:to-purple-700 text-sm w-full sm:w-auto"
+            >
               <Download className="w-4 h-4 mr-2" />
-              Export
+              Export CSV
             </Button>
           </div>
         </CardHeader>
@@ -279,7 +343,7 @@ export default function PaymentsPage() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-cyan-400 w-5 h-5" />
               <Input
-                placeholder="Search transactions..."
+                placeholder="Search by customer, email, transaction ID, or package..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-12 bg-white/10 border-white/20 text-white placeholder-white/60 focus:border-cyan-400 text-sm"
@@ -293,6 +357,7 @@ export default function PaymentsPage() {
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="failed">Failed</SelectItem>
                   <SelectItem value="refunded">Refunded</SelectItem>
@@ -350,6 +415,14 @@ export default function PaymentsPage() {
                         {payment.paymentMethod}
                       </span>
                     </div>
+                    {payment.packageName && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-400">Package:</span>
+                        <span className="text-white">
+                          {payment.packageName}
+                        </span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-xs">
                       <span className="text-slate-400">Transaction ID:</span>
                       <span className="text-cyan-400 font-mono">
@@ -378,6 +451,9 @@ export default function PaymentsPage() {
                   </th>
                   <th className="text-left text-white/80 font-medium p-3 text-sm">
                     Customer
+                  </th>
+                  <th className="text-left text-white/80 font-medium p-3 text-sm">
+                    Package
                   </th>
                   <th className="text-left text-white/80 font-medium p-3 text-sm">
                     Amount
@@ -410,6 +486,18 @@ export default function PaymentsPage() {
                         <p className="text-white/50 text-xs">
                           {payment.customerEmail}
                         </p>
+                      </div>
+                    </td>
+                    <td className="p-3">
+                      <div>
+                        <p className="text-white/80 text-sm">
+                          {payment.packageName || "N/A"}
+                        </p>
+                        {payment.packageDestination && (
+                          <p className="text-white/50 text-xs">
+                            {payment.packageDestination}
+                          </p>
+                        )}
                       </div>
                     </td>
                     <td className="p-3 text-white/80 font-semibold text-sm">

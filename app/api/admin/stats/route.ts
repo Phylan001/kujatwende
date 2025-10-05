@@ -1,33 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getDatabase } from "@/lib/mongodb";
-import { verifyToken } from "@/lib/auth";
-
-// Force dynamic rendering for this route
-export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
-    // Verify admin authentication
-    const authHeader = request.headers.get("authorization");
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
-
-    const token = authHeader.substring(7);
-    const user = verifyToken(token);
-    if (!user || user.role !== "admin") {
-      return NextResponse.json(
-        { error: "Admin access required" },
-        { status: 403 }
-      );
-    }
-
     const db = await getDatabase();
 
-    // Get stats
+    // Get all stats in parallel for better performance
     const [
       totalUsers,
       totalPackages,
@@ -35,19 +13,26 @@ export async function GET(request: NextRequest) {
       pendingBookings,
       activePackages,
       paidBookings,
+      totalRevenueResult,
     ] = await Promise.all([
       db.collection("users").countDocuments(),
       db.collection("packages").countDocuments(),
       db.collection("bookings").countDocuments(),
       db.collection("bookings").countDocuments({ status: "pending" }),
-      db.collection("packages").countDocuments({ available: true }),
+      db.collection("packages").countDocuments({ status: "active" }),
       db.collection("bookings").find({ paymentStatus: "paid" }).toArray(),
+      // Calculate total revenue from paid bookings
+      db
+        .collection("bookings")
+        .aggregate([
+          { $match: { paymentStatus: "paid" } },
+          { $group: { _id: null, total: { $sum: "$totalAmount" } } },
+        ])
+        .toArray(),
     ]);
 
-    const totalRevenue = paidBookings.reduce(
-      (sum, booking) => sum + booking.totalAmount,
-      0
-    );
+    const totalRevenue =
+      totalRevenueResult.length > 0 ? totalRevenueResult[0].total : 0;
 
     const stats = {
       totalUsers,
