@@ -1,3 +1,4 @@
+// app/dashboard/bookings/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -20,11 +21,16 @@ import {
   Clock,
   CheckCircle,
   XCircle,
+  CreditCard,
+  Ban,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth } from "@/providers/AuthProvider";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
+import BookingDetailsModal from "@/components/user/bookings/BookingDetailsModal";
+import PaymentModal from "@/components/user/bookings/PaymentModal";
+import CancelBookingModal from "@/components/user/bookings/CancelBookingModal";
 
 interface Booking {
   _id: string;
@@ -33,11 +39,24 @@ interface Booking {
     name: string;
     image?: { url: string };
     destinationName: string;
+    duration: number;
+    price: number;
+    isFree: boolean;
+    inclusions: string[];
+    exclusions: string[];
+    highlights: string[];
+    itinerary: Array<{
+      day: number;
+      title: string;
+      description: string;
+      activities: string[];
+    }>;
   };
   customerInfo: {
     name: string;
     email: string;
     phone: string;
+    emergencyContact: string;
   };
   travelDate: string;
   numberOfTravelers: number;
@@ -46,14 +65,22 @@ interface Booking {
   status: "pending" | "confirmed" | "cancelled" | "completed";
   specialRequests?: string;
   createdAt: string;
+  paymentId?: string;
 }
 
 export default function UserBookingsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+
+  const bookingId = searchParams.get("booking");
 
   useEffect(() => {
     if (authLoading) return;
@@ -66,12 +93,22 @@ export default function UserBookingsPage() {
 
   const fetchUserBookings = async () => {
     try {
-      const token = localStorage.getItem("auth-token");
-      const response = await fetch("/api/user/bookings", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const userId = (user as any)?._id || (user as any)?.id;
+
+      if (!userId) {
+        toast({
+          title: "Error",
+          description: "Unable to identify user. Please try logging in again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const url = bookingId 
+        ? `/api/user/bookings?userId=${userId}&bookingId=${bookingId}`
+        : `/api/user/bookings?userId=${userId}`;
+
+      const response = await fetch(url);
 
       if (response.ok) {
         const data = await response.json();
@@ -104,6 +141,21 @@ export default function UserBookingsPage() {
     }
   };
 
+  const getPaymentStatusColor = (status: string) => {
+    switch (status) {
+      case "paid":
+        return "bg-green-500/20 text-green-400 border-green-500/30";
+      case "pending":
+        return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+      case "failed":
+        return "bg-red-500/20 text-red-400 border-red-500/30";
+      case "refunded":
+        return "bg-blue-500/20 text-blue-400 border-blue-500/30";
+      default:
+        return "bg-gray-500/20 text-gray-400 border-gray-500/30";
+    }
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "confirmed":
@@ -117,6 +169,40 @@ export default function UserBookingsPage() {
       default:
         return <Clock className="w-4 h-4" />;
     }
+  };
+
+  const handleViewBooking = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setIsDetailsModalOpen(true);
+  };
+
+  const handleMakePayment = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setIsPaymentModalOpen(true);
+  };
+
+  const handleCancelBooking = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setIsCancelModalOpen(true);
+  };
+
+  const handlePaymentSuccess = (paymentId: string) => {
+    toast({
+      title: "Payment Successful",
+      description: "Your payment has been processed successfully",
+    });
+    setIsPaymentModalOpen(false);
+    fetchUserBookings(); // Refresh bookings
+    router.push(`/dashboard/payments?payment=${paymentId}`);
+  };
+
+  const handleCancelSuccess = () => {
+    toast({
+      title: "Booking Cancelled",
+      description: "Your booking has been cancelled successfully",
+    });
+    setIsCancelModalOpen(false);
+    fetchUserBookings(); // Refresh bookings
   };
 
   if (authLoading || loading) {
@@ -138,6 +224,11 @@ export default function UserBookingsPage() {
         <div>
           <h2 className="text-3xl font-bold text-white">My Bookings</h2>
           <p className="text-white/70">Manage your adventure bookings</p>
+          {bookingId && (
+            <p className="text-orange-400 text-sm">
+              Showing specific booking details
+            </p>
+          )}
         </div>
       </div>
 
@@ -147,9 +238,13 @@ export default function UserBookingsPage() {
           <Card className="glass border-orange-500/20">
             <CardContent className="text-center py-12">
               <Calendar className="w-16 h-16 text-orange-400/50 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-white mb-2">No bookings yet</h3>
-              <p className="text-white/70 mb-6">Start your adventure by booking a package</p>
-              <Button 
+              <h3 className="text-xl font-bold text-white mb-2">
+                No bookings yet
+              </h3>
+              <p className="text-white/70 mb-6">
+                Start your adventure by booking a package
+              </p>
+              <Button
                 onClick={() => router.push("/packages")}
                 className="btn-adventure"
               >
@@ -159,7 +254,10 @@ export default function UserBookingsPage() {
           </Card>
         ) : (
           bookings.map((booking) => (
-            <Card key={booking._id} className="glass border-orange-500/20 hover:border-orange-500/40 transition-all">
+            <Card
+              key={booking._id}
+              className="glass border-orange-500/20 hover:border-orange-500/40 transition-all"
+            >
               <CardContent className="p-6">
                 <div className="flex flex-col lg:flex-row lg:items-center gap-6">
                   {/* Package Image */}
@@ -189,15 +287,20 @@ export default function UserBookingsPage() {
                           {booking.packageId.destinationName}
                         </p>
                       </div>
-                      <Badge className={getStatusColor(booking.status)}>
-                        <span className="flex items-center gap-1">
-                          {getStatusIcon(booking.status)}
-                          {booking.status}
-                        </span>
-                      </Badge>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <Badge className={getStatusColor(booking.status)}>
+                          <span className="flex items-center gap-1">
+                            {getStatusIcon(booking.status)}
+                            {booking.status}
+                          </span>
+                        </Badge>
+                        <Badge className={getPaymentStatusColor(booking.paymentStatus)}>
+                          {booking.paymentStatus}
+                        </Badge>
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
                       <div className="flex items-center gap-2 text-white/70">
                         <Calendar className="w-4 h-4 text-orange-400" />
                         {format(new Date(booking.travelDate), "MMM dd, yyyy")}
@@ -210,36 +313,55 @@ export default function UserBookingsPage() {
                         <DollarSign className="w-4 h-4 text-orange-400" />
                         KSh {booking.totalAmount.toLocaleString()}
                       </div>
+                      <div className="flex items-center gap-2 text-white/70">
+                        <Calendar className="w-4 h-4 text-orange-400" />
+                        {format(new Date(booking.createdAt), "MMM dd, yyyy")}
+                      </div>
                     </div>
 
                     {booking.specialRequests && (
                       <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-3">
                         <p className="text-orange-300 text-sm">
-                          <strong>Special Requests:</strong> {booking.specialRequests}
+                          <strong>Special Requests:</strong>{" "}
+                          {booking.specialRequests}
                         </p>
                       </div>
                     )}
                   </div>
 
                   {/* Actions */}
-                  <div className="flex flex-col gap-2">
-                    <Button
-                      onClick={() => router.push(`/packages/${booking.packageId._id}`)}
-                      variant="outline"
-                      className="border-orange-500/30 text-orange-400 hover:bg-orange-500/10"
-                    >
-                      <Eye className="w-4 h-4 mr-2" />
-                      View Package
-                    </Button>
-                    {booking.status === "completed" && (
+                  <div className="flex flex-col gap-2 w-full lg:w-auto">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-2">
                       <Button
-                        onClick={() => router.push(`/packages/${booking.packageId._id}/review`)}
-                        className="bg-gradient-to-r from-orange-400 to-cyan-400 hover:from-orange-500 hover:to-cyan-500"
+                        onClick={() => handleViewBooking(booking)}
+                        variant="outline"
+                        className="border-orange-500/30 text-orange-400 hover:bg-orange-500/10"
                       >
-                        <Star className="w-4 h-4 mr-2" />
-                        Write Review
+                        <Eye className="w-4 h-4 mr-2" />
+                        View Booking
                       </Button>
-                    )}
+                      
+                      {booking.paymentStatus !== "paid" && booking.status !== "cancelled" && (
+                        <Button
+                          onClick={() => handleMakePayment(booking)}
+                          className="bg-gradient-to-r from-green-400 to-cyan-400 hover:from-green-500 hover:to-cyan-500"
+                        >
+                          <CreditCard className="w-4 h-4 mr-2" />
+                          Make Payment
+                        </Button>
+                      )}
+                      
+                      {booking.status !== "cancelled" && booking.status !== "completed" && (
+                        <Button
+                          onClick={() => handleCancelBooking(booking)}
+                          variant="destructive"
+                          className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border-red-500/30"
+                        >
+                          <Ban className="w-4 h-4 mr-2" />
+                          Cancel
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -247,6 +369,27 @@ export default function UserBookingsPage() {
           ))
         )}
       </div>
+
+      {/* Modals */}
+      <BookingDetailsModal
+        isOpen={isDetailsModalOpen}
+        onClose={() => setIsDetailsModalOpen(false)}
+        booking={selectedBooking}
+      />
+
+      <PaymentModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        booking={selectedBooking}
+        onSuccess={handlePaymentSuccess}
+      />
+
+      <CancelBookingModal
+        isOpen={isCancelModalOpen}
+        onClose={() => setIsCancelModalOpen(false)}
+        booking={selectedBooking}
+        onSuccess={handleCancelSuccess}
+      />
     </div>
   );
 }

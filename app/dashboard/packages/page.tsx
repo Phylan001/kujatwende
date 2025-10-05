@@ -1,13 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -18,18 +12,21 @@ import {
   Calendar,
   Users,
   Star,
-  DollarSign,
   Image as ImageIcon,
+  Eye,
 } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
+import PackageDetailsModal from "@/components/user/packages/PackageDetailsModal";
+import BookingModal from "@/components/user/packages/BookingModal";
 
 interface TravelPackage {
   _id: string;
   name: string;
   description: string;
   destinationName: string;
+  destinationId: string;
   duration: number;
   price: number;
   isFree: boolean;
@@ -45,7 +42,15 @@ interface TravelPackage {
   averageRating: number;
   totalReviews: number;
   inclusions: string[];
+  exclusions: string[];
   highlights: string[];
+  itinerary: Array<{
+    day: number;
+    title: string;
+    description: string;
+    activities: string[];
+  }>;
+  requirements?: string[];
 }
 
 export default function PackagesPage() {
@@ -56,6 +61,12 @@ export default function PackagesPage() {
   const [packages, setPackages] = useState<TravelPackage[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [selectedPackage, setSelectedPackage] = useState<TravelPackage | null>(
+    null
+  );
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+
   const destinationFilter = searchParams.get("destination") || "all";
 
   useEffect(() => {
@@ -71,7 +82,7 @@ export default function PackagesPage() {
     try {
       const url =
         destinationFilter !== "all"
-          ? `/api/user/packages?destinationId=${destinationFilter}`
+          ? `/api/user/packages?destination=${destinationFilter}`
           : "/api/user/packages";
 
       const response = await fetch(url);
@@ -91,8 +102,140 @@ export default function PackagesPage() {
     }
   };
 
-  const handleBookNow = (packageId: string) => {
-    router.push(`/bookings/new/${packageId}`);
+  const handleViewDetails = (pkg: TravelPackage) => {
+    setSelectedPackage(pkg);
+    setIsDetailsModalOpen(true);
+  };
+
+  const handleBookNow = (pkg: TravelPackage) => {
+    setSelectedPackage(pkg);
+    setIsBookingModalOpen(true);
+  };
+
+  const handleBookingSubmit = async (bookingData: {
+    numberOfTravelers: number;
+    travelDate: string;
+    specialRequests?: string;
+    customerInfo: {
+      name: string;
+      email: string;
+      phone: string;
+      emergencyContact: string;
+    };
+  }) => {
+    if (!selectedPackage) return;
+
+    // Extract user ID from user object
+    const userId = (user as any)?._id || (user as any)?.id;
+
+    if (!userId) {
+      toast({
+        title: "Error",
+        description: "Unable to identify user. Please try logging in again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/user/bookings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          packageId: selectedPackage._id,
+          userId: userId,
+          ...bookingData,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: "Booking created successfully!",
+        });
+        setIsBookingModalOpen(false);
+        // Redirect to booking page with the booking ID
+        router.push(`/dashboard/bookings?booking=${data.booking._id}`);
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to create booking",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error creating booking:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create booking",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handlePackageReviewSubmit = async (reviewData: {
+    rating: number;
+    comment: string;
+    title: string;
+  }) => {
+    if (!selectedPackage) return;
+
+    // Extract user ID from user object
+    const userId = (user as any)?._id || (user as any)?.id;
+
+    if (!userId) {
+      toast({
+        title: "Error",
+        description: "Unable to identify user. Please try logging in again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/user/package-reviews", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          packageId: selectedPackage._id,
+          userId: userId,
+          rating: reviewData.rating,
+          title: reviewData.title,
+          comment: reviewData.comment,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: "Review submitted successfully!",
+        });
+        setIsDetailsModalOpen(false);
+        // Refresh packages to update ratings
+        fetchPackages();
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to submit review",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error submitting review:", error);
+      toast({
+        title: "Error",
+        description: "Failed to submit review",
+        variant: "destructive",
+      });
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -147,6 +290,11 @@ export default function PackagesPage() {
         <div>
           <h2 className="text-3xl font-bold text-white">Travel Packages</h2>
           <p className="text-white/70">Find your perfect adventure</p>
+          {destinationFilter !== "all" && (
+            <p className="text-orange-400 text-sm">
+              Showing packages for selected destination
+            </p>
+          )}
         </div>
       </div>
 
@@ -261,7 +409,7 @@ export default function PackagesPage() {
                 </div>
 
                 {/* Highlights */}
-                {pkg.highlights.length > 0 && (
+                {pkg.highlights?.length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {pkg.highlights.slice(0, 3).map((highlight, index) => (
                       <Badge
@@ -274,17 +422,29 @@ export default function PackagesPage() {
                   </div>
                 )}
 
-                <Button
-                  onClick={() => handleBookNow(pkg._id)}
-                  disabled={pkg.status !== "active" || pkg.availableSeats === 0}
-                  className="w-full btn-adventure"
-                >
-                  {pkg.status !== "active"
-                    ? "Not Available"
-                    : pkg.availableSeats === 0
-                    ? "Sold Out"
-                    : "Book Now"}
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => handleViewDetails(pkg)}
+                    variant="outline"
+                    className="flex-1 border-orange-500/50 text-orange-400 hover:bg-orange-500/10"
+                  >
+                    <Eye className="w-4 h-4 mr-1" />
+                    View
+                  </Button>
+                  <Button
+                    onClick={() => handleBookNow(pkg)}
+                    disabled={
+                      pkg.status !== "active" || pkg.availableSeats === 0
+                    }
+                    className="flex-1 btn-adventure"
+                  >
+                    {pkg.status !== "active"
+                      ? "Not Available"
+                      : pkg.availableSeats === 0
+                      ? "Sold Out"
+                      : "Book Now"}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -302,6 +462,21 @@ export default function PackagesPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Modals */}
+      <PackageDetailsModal
+        isOpen={isDetailsModalOpen}
+        onClose={() => setIsDetailsModalOpen(false)}
+        package={selectedPackage}
+        onReviewSubmit={handlePackageReviewSubmit}
+      />
+
+      <BookingModal
+        isOpen={isBookingModalOpen}
+        onClose={() => setIsBookingModalOpen(false)}
+        package={selectedPackage}
+        onSubmit={handleBookingSubmit}
+      />
     </div>
   );
 }
