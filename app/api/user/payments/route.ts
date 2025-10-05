@@ -3,6 +3,109 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDatabase } from "@/lib/mongodb";
 import { ObjectId } from "mongodb";
 
+/**
+ * GET endpoint to fetch user payments
+ * Supports filtering by paymentId for single payment view
+ * Includes booking and package details through aggregation
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const db = await getDatabase();
+    const searchParams = request.nextUrl.searchParams;
+    const userId = searchParams.get("userId");
+    const paymentId = searchParams.get("paymentId");
+
+    // Validate required userId parameter
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: "userId query parameter required" },
+        { status: 400 }
+      );
+    }
+
+    // Validate and convert userId to ObjectId
+    let userObjectId: ObjectId;
+    try {
+      userObjectId = new ObjectId(userId);
+    } catch (error) {
+      return NextResponse.json(
+        { success: false, error: "Invalid user ID format" },
+        { status: 400 }
+      );
+    }
+
+    // Build match criteria
+    const matchCriteria: any = { userId: userObjectId };
+
+    // Add paymentId filter if provided
+    if (paymentId) {
+      try {
+        matchCriteria._id = new ObjectId(paymentId);
+      } catch (error) {
+        return NextResponse.json(
+          { success: false, error: "Invalid payment ID format" },
+          { status: 400 }
+        );
+      }
+    }
+
+    /**
+     * Aggregation pipeline to fetch payments with related booking and package data
+     * Steps:
+     * 1. Filter payments by user (and optionally by payment ID)
+     * 2. Lookup booking details
+     * 3. Unwind booking array
+     * 4. Lookup package details from booking
+     * 5. Unwind package array
+     * 6. Sort by creation date (newest first)
+     */
+    const payments = await db
+      .collection("payments")
+      .aggregate([
+        { $match: matchCriteria },
+        {
+          $lookup: {
+            from: "bookings",
+            localField: "bookingId",
+            foreignField: "_id",
+            as: "bookingId",
+          },
+        },
+        { $unwind: "$bookingId" },
+        {
+          $lookup: {
+            from: "packages",
+            localField: "bookingId.packageId",
+            foreignField: "_id",
+            as: "bookingId.packageId",
+          },
+        },
+        { $unwind: "$bookingId.packageId" },
+        { $sort: { createdAt: -1 } },
+      ])
+      .toArray();
+
+    return NextResponse.json({
+      success: true,
+      payments,
+    });
+  } catch (error) {
+    console.error("Error fetching payments:", error);
+    return NextResponse.json(
+      { 
+        success: false, 
+        error: "Failed to fetch payments",
+        details: process.env.NODE_ENV === "development" ? String(error) : undefined
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * POST endpoint to create a new payment
+ * Validates booking, processes payment, and updates booking status
+ */
 export async function POST(request: NextRequest) {
   try {
     const db = await getDatabase();
@@ -74,7 +177,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate transaction ID (in production, use proper payment gateway)
+    // Generate transaction ID
     const transactionId = `TXN${Date.now()}${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
 
     // Create payment record
@@ -84,12 +187,13 @@ export async function POST(request: NextRequest) {
       amount: body.amount,
       paymentMethod: body.paymentMethod,
       transactionId,
-      transactionType: "payment",
-      status: "paid" as const, // In production, this would be pending until confirmed
+      transactionType: "payment" as const,
+      status: "paid" as const,
       cardDetails: body.paymentMethod === "card" ? {
         lastFourDigits: body.cardDetails?.number?.slice(-4) || "****",
-        cardType: "credit", // Would be determined from card number
+        cardType: "credit" as const,
       } : undefined,
+      mpesaPhone: body.paymentMethod === "mpesa" ? body.mpesaPhone : undefined,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

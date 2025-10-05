@@ -1,4 +1,3 @@
-// components/user/bookings/PaymentModal.tsx
 "use client";
 
 import { useState } from "react";
