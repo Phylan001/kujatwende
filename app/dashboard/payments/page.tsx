@@ -1,13 +1,9 @@
-// app/dashboard/payments/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +16,7 @@ import {
   XCircle,
   Clock,
   RefreshCw,
+  ArrowLeft,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth } from "@/providers/AuthProvider";
@@ -41,14 +38,25 @@ interface Payment {
   };
   amount: number;
   paymentMethod: "mpesa" | "card" | "bank";
-  status: "pending" | "completed" | "failed" | "refunded";
+  status: "pending" | "completed" | "paid" | "failed" | "refunded";
+  transactionType: "payment" | "refund";
   transactionId?: string;
   mpesaCode?: string;
+  mpesaPhone?: string;
   refundReason?: string;
+  refundedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
 
+/**
+ * User Payments Management Page
+ * Features:
+ * - View all payments or filter by specific payment ID
+ * - Display payment transactions and refunds
+ * - View detailed payment information
+ * - Navigate back to bookings
+ */
 export default function UserPaymentsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -68,8 +76,12 @@ export default function UserPaymentsPage() {
       return;
     }
     fetchUserPayments();
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, paymentId]);
 
+  /**
+   * Fetches user payments from API
+   * Filters by paymentId if provided in URL params
+   */
   const fetchUserPayments = async () => {
     try {
       const userId = (user as any)?._id || (user as any)?.id;
@@ -83,6 +95,7 @@ export default function UserPaymentsPage() {
         return;
       }
 
+      // Build URL with optional payment filter
       const url = paymentId 
         ? `/api/user/payments?userId=${userId}&paymentId=${paymentId}`
         : `/api/user/payments?userId=${userId}`;
@@ -92,6 +105,8 @@ export default function UserPaymentsPage() {
       if (response.ok) {
         const data = await response.json();
         setPayments(data.payments || []);
+      } else {
+        throw new Error("Failed to fetch payments");
       }
     } catch (error) {
       console.error("Error fetching payments:", error);
@@ -105,9 +120,13 @@ export default function UserPaymentsPage() {
     }
   };
 
+  /**
+   * Returns color class based on payment status
+   */
   const getStatusColor = (status: string) => {
     switch (status) {
       case "completed":
+      case "paid":
         return "bg-green-500/20 text-green-400 border-green-500/30";
       case "pending":
         return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
@@ -120,9 +139,13 @@ export default function UserPaymentsPage() {
     }
   };
 
+  /**
+   * Returns icon component based on status
+   */
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "completed":
+      case "paid":
         return <CheckCircle className="w-4 h-4" />;
       case "pending":
         return <Clock className="w-4 h-4" />;
@@ -135,6 +158,9 @@ export default function UserPaymentsPage() {
     }
   };
 
+  /**
+   * Returns color class based on payment method
+   */
   const getPaymentMethodColor = (method: string) => {
     switch (method) {
       case "mpesa":
@@ -148,9 +174,32 @@ export default function UserPaymentsPage() {
     }
   };
 
+  /**
+   * Returns badge color based on transaction type
+   */
+  const getTransactionTypeColor = (type: string) => {
+    return type === "refund" 
+      ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
+      : "bg-green-500/20 text-green-400 border-green-500/30";
+  };
+
   const handleViewPayment = (payment: Payment) => {
     setSelectedPayment(payment);
     setIsDetailsModalOpen(true);
+  };
+
+  /**
+   * Navigates to booking details page
+   */
+  const handleViewBooking = (bookingId: string) => {
+    router.push(`/dashboard/bookings?booking=${bookingId}`);
+  };
+
+  /**
+   * Clears payment filter and shows all payments
+   */
+  const handleViewAllPayments = () => {
+    router.push('/dashboard/payments');
   };
 
   if (authLoading || loading) {
@@ -167,17 +216,29 @@ export default function UserPaymentsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <CreditCard className="w-8 h-8 text-orange-400" />
-        <div>
-          <h2 className="text-3xl font-bold text-white">My Payments</h2>
-          <p className="text-white/70">View your payment history and details</p>
-          {paymentId && (
-            <p className="text-orange-400 text-sm">
-              Showing specific payment details
-            </p>
-          )}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <CreditCard className="w-8 h-8 text-orange-400" />
+          <div>
+            <h2 className="text-3xl font-bold text-white">My Payments</h2>
+            <p className="text-white/70">View your payment history and details</p>
+            {paymentId && (
+              <p className="text-orange-400 text-sm">
+                Viewing payment: {paymentId}
+              </p>
+            )}
+          </div>
         </div>
+
+        {paymentId && (
+          <Button
+            onClick={handleViewAllPayments}
+            variant="outline"
+            className="border-orange-500/30 text-orange-400 hover:bg-orange-500/10"
+          >
+            View All Payments
+          </Button>
+        )}
       </div>
 
       {/* Payments Grid */}
@@ -187,10 +248,13 @@ export default function UserPaymentsPage() {
             <CardContent className="text-center py-12">
               <CreditCard className="w-16 h-16 text-orange-400/50 mx-auto mb-4" />
               <h3 className="text-xl font-bold text-white mb-2">
-                No payments yet
+                {paymentId ? "Payment not found" : "No payments yet"}
               </h3>
               <p className="text-white/70 mb-6">
-                Your payment history will appear here
+                {paymentId
+                  ? "The payment you're looking for doesn't exist or you don't have access to it"
+                  : "Your payment history will appear here"
+                }
               </p>
               <Button
                 onClick={() => router.push("/dashboard/bookings")}
@@ -209,7 +273,7 @@ export default function UserPaymentsPage() {
               <CardContent className="p-6">
                 <div className="flex flex-col lg:flex-row lg:items-center gap-6">
                   {/* Payment Icon */}
-                  <div className="w-16 h-16 rounded-full bg-orange-500/10 flex items-center justify-center">
+                  <div className="w-16 h-16 rounded-full bg-orange-500/10 flex items-center justify-center flex-shrink-0">
                     <CreditCard className="w-8 h-8 text-orange-400" />
                   </div>
 
@@ -224,7 +288,7 @@ export default function UserPaymentsPage() {
                           {payment.bookingId.packageId.destinationName}
                         </p>
                       </div>
-                      <div className="flex flex-col sm:flex-row gap-2">
+                      <div className="flex flex-col sm:flex-row gap-2 flex-wrap">
                         <Badge className={getStatusColor(payment.status)}>
                           <span className="flex items-center gap-1">
                             {getStatusIcon(payment.status)}
@@ -233,6 +297,9 @@ export default function UserPaymentsPage() {
                         </Badge>
                         <Badge className={getPaymentMethodColor(payment.paymentMethod)}>
                           {payment.paymentMethod.toUpperCase()}
+                        </Badge>
+                        <Badge className={getTransactionTypeColor(payment.transactionType)}>
+                          {payment.transactionType}
                         </Badge>
                       </div>
                     </div>
@@ -251,22 +318,37 @@ export default function UserPaymentsPage() {
                         {format(new Date(payment.createdAt), "MMM dd, yyyy")}
                       </div>
                       {payment.transactionId && (
-                        <div className="text-white/70">
-                          ID: {payment.transactionId.slice(-8)}
+                        <div className="text-white/70 text-xs">
+                          ID: {payment.transactionId.slice(-10)}
                         </div>
                       )}
                     </div>
 
+                    {/* Refund Information */}
                     {payment.refundReason && (
                       <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
                         <p className="text-blue-300 text-sm">
                           <strong>Refund Reason:</strong> {payment.refundReason}
                         </p>
+                        {payment.refundedAt && (
+                          <p className="text-blue-300 text-xs mt-1">
+                            Refunded on: {format(new Date(payment.refundedAt), "MMM dd, yyyy 'at' h:mm a")}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* M-Pesa Details */}
+                    {payment.paymentMethod === "mpesa" && payment.mpesaPhone && (
+                      <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3">
+                        <p className="text-green-300 text-sm">
+                          <strong>M-Pesa Phone:</strong> {payment.mpesaPhone}
+                        </p>
                       </div>
                     )}
                   </div>
 
-                  {/* Action */}
+                  {/* Actions */}
                   <div className="flex flex-col gap-2 w-full lg:w-auto">
                     <Button
                       onClick={() => handleViewPayment(payment)}
@@ -275,6 +357,14 @@ export default function UserPaymentsPage() {
                     >
                       <Eye className="w-4 h-4 mr-2" />
                       View Details
+                    </Button>
+                    <Button
+                      onClick={() => handleViewBooking(payment.bookingId._id)}
+                      variant="outline"
+                      className="border-blue-500/30 text-blue-400 hover:bg-blue-500/10"
+                    >
+                      <ArrowLeft className="w-4 h-4 mr-2" />
+                      View Booking
                     </Button>
                   </div>
                 </div>

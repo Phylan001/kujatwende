@@ -1,10 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -63,6 +60,15 @@ interface Booking {
   paymentId?: string;
 }
 
+/**
+ * User Bookings Management Page
+ * Features:
+ * - View all bookings or filter by specific booking ID
+ * - Make payments for pending bookings
+ * - View payment details for paid bookings
+ * - Cancel bookings with refund handling
+ * - Real-time booking status updates
+ */
 export default function UserBookingsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -86,6 +92,10 @@ export default function UserBookingsPage() {
     fetchUserBookings();
   }, [user, authLoading, router, bookingId]);
 
+  /**
+   * Fetches user bookings from API
+   * Filters by bookingId if provided in URL params
+   */
   const fetchUserBookings = async () => {
     try {
       const userId = (user as any)?._id || (user as any)?.id;
@@ -105,14 +115,14 @@ export default function UserBookingsPage() {
       if (response.ok) {
         const data = await response.json();
         let fetchedBookings = data.bookings || [];
-        
+
         // Filter by bookingId if present in URL
         if (bookingId) {
           fetchedBookings = fetchedBookings.filter(
             (booking: Booking) => booking._id === bookingId
           );
         }
-        
+
         setBookings(fetchedBookings);
       }
     } catch (error) {
@@ -127,6 +137,9 @@ export default function UserBookingsPage() {
     }
   };
 
+  /**
+   * Returns color class based on booking status
+   */
   const getStatusColor = (status: string) => {
     switch (status) {
       case "confirmed":
@@ -142,6 +155,9 @@ export default function UserBookingsPage() {
     }
   };
 
+  /**
+   * Returns color class based on payment status
+   */
   const getPaymentStatusColor = (status: string) => {
     switch (status) {
       case "paid":
@@ -157,6 +173,9 @@ export default function UserBookingsPage() {
     }
   };
 
+  /**
+   * Returns icon component based on status
+   */
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "confirmed":
@@ -187,6 +206,26 @@ export default function UserBookingsPage() {
     setIsCancelModalOpen(true);
   };
 
+  /**
+   * Navigates to payment details page
+   * Uses paymentId from booking to filter payment
+   */
+  const handleViewPayment = (booking: Booking) => {
+    if (booking.paymentId) {
+      router.push(`/dashboard/payments?payment=${booking.paymentId}`);
+    } else {
+      toast({
+        title: "Payment Not Found",
+        description: "Unable to locate payment information for this booking",
+        variant: "destructive",
+      });
+    }
+  };
+
+  /**
+   * Handles successful payment
+   * Redirects to payment page with payment ID for filtering
+   */
   const handlePaymentSuccess = (paymentId: string) => {
     toast({
       title: "Payment Successful",
@@ -194,9 +233,14 @@ export default function UserBookingsPage() {
     });
     setIsPaymentModalOpen(false);
     fetchUserBookings();
+    // Redirect to payments page with payment ID filter
     router.push(`/dashboard/payments?payment=${paymentId}`);
   };
 
+  /**
+   * Handles successful booking cancellation
+   * Refreshes booking list and clears filters
+   */
   const handleCancelSuccess = () => {
     toast({
       title: "Booking Cancelled",
@@ -204,12 +248,15 @@ export default function UserBookingsPage() {
     });
     setIsCancelModalOpen(false);
     // Clear booking filter and refresh all bookings
-    router.push('/dashboard/bookings');
+    router.push("/dashboard/bookings");
     fetchUserBookings();
   };
 
+  /**
+   * Clears booking filter and shows all bookings
+   */
   const handleViewAllBookings = () => {
-    router.push('/dashboard/bookings');
+    router.push("/dashboard/bookings");
   };
 
   if (authLoading || loading) {
@@ -239,7 +286,7 @@ export default function UserBookingsPage() {
             )}
           </div>
         </div>
-        
+
         {bookingId && (
           <Button
             onClick={handleViewAllBookings}
@@ -261,10 +308,9 @@ export default function UserBookingsPage() {
                 {bookingId ? "Booking not found" : "No bookings yet"}
               </h3>
               <p className="text-white/70 mb-6">
-                {bookingId 
+                {bookingId
                   ? "The booking you're looking for doesn't exist or you don't have access to it"
-                  : "Start your adventure by booking a package"
-                }
+                  : "Start your adventure by booking a package"}
               </p>
               <Button
                 onClick={() => router.push("/packages")}
@@ -316,7 +362,11 @@ export default function UserBookingsPage() {
                             {booking.status}
                           </span>
                         </Badge>
-                        <Badge className={getPaymentStatusColor(booking.paymentStatus)}>
+                        <Badge
+                          className={getPaymentStatusColor(
+                            booking.paymentStatus
+                          )}
+                        >
                           {booking.paymentStatus}
                         </Badge>
                       </div>
@@ -362,27 +412,39 @@ export default function UserBookingsPage() {
                         <Eye className="w-4 h-4 mr-2" />
                         View Booking
                       </Button>
-                      
-                      {booking.paymentStatus !== "paid" && booking.status !== "cancelled" && (
+
+                      {/* Payment Button: Changes based on payment status */}
+                      {booking.paymentStatus === "paid" ? (
                         <Button
-                          onClick={() => handleMakePayment(booking)}
-                          className="bg-gradient-to-r from-green-400 to-cyan-400 hover:from-green-500 hover:to-cyan-500"
+                          onClick={() => handleViewPayment(booking)}
+                          className="bg-gradient-to-r from-blue-400 to-cyan-400 hover:from-blue-500 hover:to-cyan-500"
                         >
                           <CreditCard className="w-4 h-4 mr-2" />
-                          Make Payment
+                          View Payment
                         </Button>
+                      ) : (
+                        booking.status !== "cancelled" && (
+                          <Button
+                            onClick={() => handleMakePayment(booking)}
+                            className="bg-gradient-to-r from-green-400 to-cyan-400 hover:from-green-500 hover:to-cyan-500"
+                          >
+                            <CreditCard className="w-4 h-4 mr-2" />
+                            Make Payment
+                          </Button>
+                        )
                       )}
-                      
-                      {booking.status !== "cancelled" && booking.status !== "completed" && (
-                        <Button
-                          onClick={() => handleCancelBooking(booking)}
-                          variant="destructive"
-                          className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border-red-500/30"
-                        >
-                          <Ban className="w-4 h-4 mr-2" />
-                          Cancel
-                        </Button>
-                      )}
+
+                      {booking.status !== "cancelled" &&
+                        booking.status !== "completed" && (
+                          <Button
+                            onClick={() => handleCancelBooking(booking)}
+                            variant="destructive"
+                            className="bg-red-500/20 text-red-400 hover:bg-red-500/30 border-red-500/30"
+                          >
+                            <Ban className="w-4 h-4 mr-2" />
+                            Cancel
+                          </Button>
+                        )}
                     </div>
                   </div>
                 </div>
