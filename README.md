@@ -352,7 +352,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **DonArtkins** - Project Creator
 
-- **GitHub:** [@DonArtkins](https://github.com/Phylan001)
+- **GitHub:** [@Phylan001](https://github.com/Phylan001)
 - **Repository:** [https://github.com/Phylan001/kujatwende](https://github.com/Phylan001/kujatwende)
 
 ---
