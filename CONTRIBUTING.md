@@ -62,7 +62,7 @@ Before contributing, ensure you have:
    ```
 3. **Add upstream remote**:
    ```bash
-   git remote add upstream https://github.com/DonArtkins/kujatwende.git
+   git remote add upstream https://github.com/Phylan001/kujatwende.git
    ```
 
 ## 🔄 How to Contribute
