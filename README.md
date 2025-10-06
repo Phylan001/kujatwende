@@ -7,7 +7,7 @@
 
 A futuristic & playful travel agency web application built with Next.js, Tailwind CSS, and MongoDB. Features smooth animations, modern UI design, and comprehensive travel booking functionality.
 
-**🔗 Repository:** `https://github.com/DonArtkins/kujatwende`
+**🔗 Repository:** `https://github.com/Phylan001/kujatwende`
 
 ## 📖 Table of Contents
 
@@ -100,7 +100,7 @@ Kuja Twende is a modern travel agency web application designed as a learning pro
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/DonArtkins/kujatwende.git
+   git clone https://github.com/Phylan001/kujatwende.git
    cd kujatwende
    ```
 
@@ -352,8 +352,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **DonArtkins** - Project Creator
 
-- **GitHub:** [@DonArtkins](https://github.com/DonArtkins)
-- **Repository:** [https://github.com/DonArtkins/kujatwende](https://github.com/DonArtkins/kujatwende)
+- **GitHub:** [@DonArtkins](https://github.com/Phylan001)
+- **Repository:** [https://github.com/Phylan001/kujatwende](https://github.com/Phylan001/kujatwende)
 
 ---
 
